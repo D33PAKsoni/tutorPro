@@ -1,0 +1,13 @@
+{
+  "recommendations": [
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "dsznajder.es7-react-js-snippets",
+    "formulahendry.auto-rename-tag",
+    "antfu.vite",
+    "bradlc.vscode-tailwindcss",
+    "mtxr.sqltools",
+    "pkief.material-icon-theme",
+    "usernamehw.errorlens"
+  ]
+}

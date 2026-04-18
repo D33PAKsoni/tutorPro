@@ -1,0 +1,451 @@
+/* ============================================================
+   TUITION PRO — LAYOUT CSS
+   Page shells, safe-area handling, grid systems,
+   responsive containers, navigation offsets
+   ============================================================ */
+
+/* ---- SAFE AREA / MOBILE CHROME ---- */
+/*
+  On iOS and Android, bottom navigation "pills" and
+  status bars eat into the viewport. We use CSS env()
+  to push content clear of them automatically.
+*/
+
+html {
+  /* Prevent content jumping under notch on iOS */
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* ---- BASE PAGE SHELL ---- */
+.page {
+  min-height: 100dvh;
+  background-color: var(--background);
+  display: flex;
+  flex-direction: column;
+}
+
+/* Standard page wrapper: accounts for fixed top-bar + bottom nav */
+.page-wrapper {
+  min-height: 100dvh;
+  background-color: var(--background);
+  /* Top: TopBar height (60px) */
+  padding-top: 60px;
+  /* Bottom: BottomNav + safe-area + breathing room */
+  padding-bottom: var(--bottom-offset);
+}
+
+/* Page with no bottom nav (auth pages, full-screen modals) */
+.page-wrapper--no-nav {
+  padding-top: 60px;
+  padding-bottom: var(--space-xl);
+}
+
+/* Auth pages: centered vertically, no nav */
+.page-wrapper--auth {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-xl) var(--space-md);
+  background-color: var(--background);
+}
+
+/* ---- CONTAINERS ---- */
+/* Narrow: mobile-first content (max 640px) */
+.container {
+  width: 100%;
+  max-width: 640px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: var(--space-md);
+  padding-right: var(--space-md);
+}
+
+/* Wide: teacher dashboard tables/grids (max 960px) */
+.container-wide {
+  width: 100%;
+  max-width: 960px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: var(--space-md);
+  padding-right: var(--space-md);
+}
+
+/* Full-bleed but with gutters */
+.container-fluid {
+  width: 100%;
+  padding-left: var(--space-md);
+  padding-right: var(--space-md);
+}
+
+/* ---- PAGE SECTIONS ---- */
+.page-section {
+  padding: var(--space-lg) 0;
+}
+
+.page-section + .page-section {
+  padding-top: 0;
+}
+
+/* ---- BENTO GRID (teacher dashboard hero) ---- */
+.bento-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-md);
+}
+
+@media (min-width: 640px) {
+  .bento-grid--2 {
+    grid-template-columns: 1fr 1fr;
+  }
+  .bento-grid--3 {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+  .bento-grid--2-1 {
+    grid-template-columns: 2fr 1fr;
+  }
+}
+
+.bento-grid__span-2 {
+  grid-column: span 2;
+}
+
+/* ---- QUICK ACTION GRID ---- */
+.quick-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-md);
+}
+
+/* ---- STAT ROW ---- */
+.stat-row {
+  display: flex;
+  gap: var(--space-sm);
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.stat-row::-webkit-scrollbar { display: none; }
+
+.stat-chip {
+  flex-shrink: 0;
+  background: var(--surface-container-lowest);
+  border-radius: var(--radius-lg);
+  padding: var(--space-sm) var(--space-md);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 80px;
+}
+
+.stat-chip__value {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--primary);
+  line-height: 1;
+}
+
+.stat-chip__label {
+  font-size: 0.625rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--on-surface-variant);
+  margin-top: 4px;
+  text-align: center;
+}
+
+/* ---- LIST LAYOUT ---- */
+.list-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+/* ---- SPLIT LAYOUT (detail view) ---- */
+.split-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-md);
+}
+
+@media (min-width: 768px) {
+  .split-layout {
+    grid-template-columns: 320px 1fr;
+  }
+}
+
+/* ---- STICKY SECTION HEADER ---- */
+.sticky-header {
+  position: sticky;
+  top: 60px; /* TopBar height */
+  z-index: 50;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  padding: var(--space-sm) 0;
+  margin-bottom: var(--space-sm);
+  border-bottom: 1px solid rgba(197, 197, 211, 0.2);
+}
+
+/* ---- SCROLL CONTAINER ---- */
+.scroll-x {
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.scroll-x::-webkit-scrollbar { display: none; }
+
+/* ---- DIVIDER ---- */
+.divider {
+  height: 1px;
+  background: rgba(197, 197, 211, 0.25);
+  margin: var(--space-md) 0;
+  border: none;
+}
+
+/* ---- SPACER ---- */
+.spacer-sm  { height: var(--space-sm); }
+.spacer-md  { height: var(--space-md); }
+.spacer-lg  { height: var(--space-lg); }
+.spacer-xl  { height: var(--space-xl); }
+.spacer-nav { height: var(--bottom-offset); }
+
+/* ---- FLEX UTILITIES ---- */
+.flex        { display: flex; }
+.flex-col    { display: flex; flex-direction: column; }
+.flex-center { display: flex; align-items: center; justify-content: center; }
+.flex-between{ display: flex; align-items: center; justify-content: space-between; }
+.flex-gap-sm { gap: var(--space-sm); }
+.flex-gap-md { gap: var(--space-md); }
+.flex-1      { flex: 1; }
+.flex-shrink-0 { flex-shrink: 0; }
+
+/* ---- VISIBILITY HELPERS ---- */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---- RESPONSIVE HELPERS ---- */
+@media (max-width: 480px) {
+  .hide-mobile { display: none !important; }
+}
+
+@media (min-width: 481px) {
+  .show-mobile-only { display: none !important; }
+}
+
+/* ---- PULL-TO-REFRESH INDICATOR ---- */
+.ptr-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-sm);
+  color: var(--on-surface-variant);
+  font-size: 0.75rem;
+}
+
+/* ---- OVERLAY BACKDROP ---- */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(25, 28, 30, 0.45);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 150;
+  animation: fadeSlideUp 0.2s ease;
+}
+
+/* ---- FLOATING ACTION BUTTON (FAB) ---- */
+.fab {
+  position: fixed;
+  bottom: calc(var(--bottom-nav-height) + var(--safe-area-bottom) + var(--space-md));
+  right: var(--space-md);
+  z-index: 90;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-full);
+  background: var(--primary-gradient);
+  color: var(--on-primary);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-float);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.fab:hover {
+  transform: scale(1.05);
+  box-shadow: 0 12px 32px rgba(0, 36, 106, 0.2);
+}
+
+.fab:active {
+  transform: scale(0.96);
+}
+
+/* ---- AVATAR ROW (teacher students list) ---- */
+.avatar-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  background: var(--surface-container-lowest);
+  border-radius: var(--radius-md);
+  transition: background 0.15s;
+}
+
+.avatar-row:hover {
+  background: var(--surface-container-low);
+}
+
+/* ---- MONTH NAVIGATOR ---- */
+.month-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--surface-container-lowest);
+  border-radius: var(--radius-lg);
+  padding: var(--space-xs) var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.month-nav__title {
+  font-family: var(--font-display);
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+/* ---- SEARCH BAR ---- */
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  background: var(--surface-container-highest);
+  border-radius: var(--radius-xl);
+  padding: var(--space-sm) var(--space-md);
+  margin-bottom: var(--space-md);
+}
+
+.search-bar__icon {
+  color: var(--outline);
+  font-size: 1.125rem;
+  flex-shrink: 0;
+}
+
+.search-bar__input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-family: var(--font-body);
+  font-size: 0.9375rem;
+  color: var(--on-surface);
+}
+
+.search-bar__input::placeholder {
+  color: var(--outline);
+}
+
+/* ---- PAGE HEADER (inside main content) ---- */
+.page-header {
+  padding: var(--space-md) 0 var(--space-lg);
+}
+
+.page-header__title {
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--primary);
+  line-height: 1.2;
+}
+
+.page-header__sub {
+  font-size: 0.875rem;
+  color: var(--on-surface-variant);
+  margin-top: var(--space-xs);
+}
+
+/* ---- INSET GROUP (settings-style list) ---- */
+.inset-group {
+  background: var(--surface-container-low);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  margin-bottom: var(--space-md);
+}
+
+.inset-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  background: var(--surface-container-lowest);
+  transition: background 0.15s;
+}
+
+.inset-row + .inset-row {
+  margin-top: 1px; /* subtle tonal separator, no border */
+}
+
+.inset-row:hover {
+  background: var(--surface-container-low);
+}
+
+.inset-row:first-child {
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+}
+
+.inset-row:last-child {
+  border-radius: 0 0 var(--radius-xl) var(--radius-xl);
+}
+
+.inset-row:only-child {
+  border-radius: var(--radius-xl);
+}
+
+/* ---- DATE PICKER HEADER ---- */
+.date-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  background: var(--surface-container-lowest);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-md);
+  cursor: pointer;
+}
+
+.date-header__icon {
+  color: var(--primary);
+}
+
+.date-header__label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--on-surface-variant);
+  letter-spacing: 0.02em;
+}
+
+.date-header__value {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.date-header__input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
