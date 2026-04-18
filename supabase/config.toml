@@ -23,7 +23,7 @@ additional_redirect_urls = [
   "https://localhost:5173",
   "http://localhost:5173/auth/google/callback",
 ]
-jwt_expiry = 3600
+jwt_expiry = 604800  # 7 days — reduces token refresh calls on page load
 enable_signup = true
 
 [auth.email]
@@ -41,10 +41,10 @@ secret = "env(GOOGLE_CLIENT_SECRET)"
 # These match what you set in the Supabase Dashboard → Project Settings → Secrets.
 
 [functions.create-student-user]
-verify_jwt = true
+verify_jwt = false   # Function verifies JWT manually via supabaseAdmin.auth.getUser()
 
 [functions.exchange-google-token]
-verify_jwt = true
+verify_jwt = false   # Same — manual JWT verification inside the function
 
 [functions.send-push]
 verify_jwt = false   # called server-side with service role, not user JWT

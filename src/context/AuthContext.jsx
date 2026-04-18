@@ -1,78 +1,98 @@
 // src/context/AuthContext.jsx
-// Manages Supabase session, user role, and teacher/student profile
 
 import { createContext, useContext, useEffect, useState } from 'react';
 import { supabase, toInternalEmail } from '../supabase';
 
 const AuthContext = createContext(null);
 
-// ── fetchProfile ──────────────────────────────────────────────────────────
-// Reads the profile row for a given userId.
-// maybeSingle() returns null (not an error) when no row found.
-// Retries once after 1s to handle trigger propagation delay on new signups.
+// Fetch profile with a hard 4-second timeout so a slow/hanging DB query
+// never keeps the app in the loading state permanently.
 async function fetchProfileForUser(userId) {
-  const { data, error } = await supabase
+  const query = supabase
     .from('profiles')
     .select('*')
     .eq('id', userId)
     .maybeSingle();
 
-  if (error) {
-    console.error('[AuthContext] fetchProfile:', error.message);
-    return null;
-  }
+  const timeout = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error('profile_timeout')), 4000)
+  );
 
-  if (!data) {
-    // Trigger may not have inserted the row yet — wait 1s and retry once
-    await new Promise(r => setTimeout(r, 1000));
-    const { data: retry, error: retryErr } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .maybeSingle();
-    if (retryErr) {
-      console.error('[AuthContext] fetchProfile retry:', retryErr.message);
+  try {
+    const { data, error } = await Promise.race([query, timeout]);
+    if (error) {
+      console.error('[AuthContext] fetchProfile:', error.message);
       return null;
     }
-    return retry ?? null;
+    // Row missing — trigger may not have fired yet, retry once after 1s
+    if (!data) {
+      await new Promise(r => setTimeout(r, 1000));
+      const { data: retry } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
+      return retry ?? null;
+    }
+    return data;
+  } catch (e) {
+    console.error('[AuthContext] fetchProfile failed/timed out:', e.message);
+    return null;
   }
-
-  return data;
 }
 
 export function AuthProvider({ children }) {
-  const [session, setSession] = useState(null);
+  const [session, setSession] = useState(undefined); // undefined = not yet known
   const [profile, setProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading]  = useState(true);
 
   useEffect(() => {
     let mounted = true;
 
-    // ── STEP 1: getSession() reads from localStorage — instant, no network ──
-    // This is the correct Supabase JS v2 bootstrap pattern.
-    // It unblocks the UI immediately on refresh without waiting for any
-    // server round-trip. loading becomes false as soon as profile is fetched.
-    supabase.auth.getSession().then(async ({ data: { session: s } }) => {
+    async function init() {
+      // ── getSession() reads localStorage first. If token is expired it makes
+      //    a refresh network call. We wrap with a 6s timeout so a hanging
+      //    network call can never keep loading=true forever.
+      const sessionPromise = supabase.auth.getSession();
+      const sessionTimeout = new Promise(resolve =>
+        setTimeout(() => resolve({ data: { session: null }, timedOut: true }), 6000)
+      );
+
+      const result = await Promise.race([sessionPromise, sessionTimeout]);
+
       if (!mounted) return;
+
+      if (result.timedOut) {
+        // Network hung — clear loading and show login so user can re-auth
+        console.warn('[AuthContext] getSession timed out');
+        setSession(null);
+        setLoading(false);
+        return;
+      }
+
+      const s = result.data?.session ?? null;
       setSession(s);
+
       if (s?.user) {
         const p = await fetchProfileForUser(s.user.id);
         if (mounted) setProfile(p);
       }
-      if (mounted) setLoading(false);
-    });
 
-    // ── STEP 2: onAuthStateChange handles login / logout / token refresh ───
-    // We skip INITIAL_SESSION here because Step 1 already handled bootstrap.
+      if (mounted) setLoading(false);
+    }
+
+    init();
+
+    // onAuthStateChange handles events AFTER the initial load:
+    // SIGNED_IN, SIGNED_OUT, TOKEN_REFRESHED, PASSWORD_RECOVERY, USER_UPDATED
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
         if (!mounted) return;
 
-        // INITIAL_SESSION fires right after getSession() on mount.
-        // Skip it — Step 1 already owns the initial load.
+        // Skip the initial event — init() already handled it
         if (event === 'INITIAL_SESSION') return;
 
-        setSession(newSession);
+        setSession(newSession ?? null);
 
         if (newSession?.user) {
           const p = await fetchProfileForUser(newSession.user.id);
@@ -81,7 +101,6 @@ export function AuthProvider({ children }) {
           setProfile(null);
         }
 
-        // Ensure loading is always cleared (safety net)
         if (mounted) setLoading(false);
       }
     );
@@ -92,7 +111,6 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
-  // ── Teacher registration ──────────────────────────────────────────────
   const registerTeacher = async ({ email, password, fullName }) => {
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -102,35 +120,31 @@ export function AuthProvider({ children }) {
     return { data, error };
   };
 
-  // ── Teacher login ─────────────────────────────────────────────────────
   const loginTeacher = async ({ email, password }) => {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    return { data, error };
+    return supabase.auth.signInWithPassword({ email, password });
   };
 
-  // ── Student login (username → internal email) ─────────────────────────
   const loginStudent = async ({ username, password }) => {
     const email = toInternalEmail(username);
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    return { data, error };
+    return supabase.auth.signInWithPassword({ email, password });
   };
 
-  // ── Sign out ──────────────────────────────────────────────────────────
   const signOut = async () => {
     await supabase.auth.signOut();
     setProfile(null);
     setSession(null);
   };
 
-  // ── Refresh profile (call after profile update) ───────────────────────
   const refreshProfile = async () => {
     if (!session?.user) return;
     const p = await fetchProfileForUser(session.user.id);
     setProfile(p);
   };
 
+  // loading=true only while we haven't finished the init() call
+  // session=undefined means init hasn't run yet (shouldn't reach guards)
   const value = {
-    session,
+    session: session ?? null,
     user: session?.user ?? null,
     profile,
     isTeacher: profile?.role === 'teacher',
