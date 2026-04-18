@@ -2,16 +2,21 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import { registerSW } from 'virtual:pwa-register';
 
-// Register service worker built from src/workers/sw.js
-// Vite copies it to /sw.js in the build output via vite.config.js worker entry
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker
-      .register('/sw.js', { scope: '/' })
-      .catch(console.error);
-  });
-}
+// VitePWA's virtual module — registers the Workbox-generated SW
+// and handles auto-updates. This is what makes Chrome fire beforeinstallprompt.
+registerSW({
+  onNeedRefresh() {
+    // New content available — we silently update (autoUpdate mode)
+  },
+  onOfflineReady() {
+    console.log('[SW] App ready to work offline');
+  },
+  onRegisterError(error) {
+    console.error('[SW] Registration failed:', error);
+  },
+});
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

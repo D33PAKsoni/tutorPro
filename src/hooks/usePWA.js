@@ -1,47 +1,69 @@
 // src/hooks/usePWA.js
-// Manages PWA install prompt and push notification permission
 
 import { useState, useEffect, useCallback } from 'react';
 import { subscribeToPush } from '../lib/push';
 import { supabase } from '../supabase';
 import { useAuth } from '../context/AuthContext';
 
-// ── PWA Install ─────────────────────────────────────────────────────────────
-// Captures the beforeinstallprompt event so we can trigger it on button click.
+// ── Global prompt capture ────────────────────────────────────────────────────
+// beforeinstallprompt can fire BEFORE React mounts. We capture it at module
+// load time (runs immediately when the JS bundle is parsed) so no hook ever
+// misses it, no matter how late it mounts.
+let _deferredPrompt = null;
+let _promptListeners = [];
+
+function notifyListeners() {
+  _promptListeners.forEach(fn => fn(_deferredPrompt));
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    _deferredPrompt = e;
+    notifyListeners();
+  });
+
+  window.addEventListener('appinstalled', () => {
+    _deferredPrompt = null;
+    notifyListeners();
+  });
+}
+
+// ── usePWAInstall ─────────────────────────────────────────────────────────────
 export function usePWAInstall() {
-  const [installPrompt, setInstallPrompt] = useState(null);
-  const [isInstalled, setIsInstalled]     = useState(false);
+  const [installPrompt, setInstallPrompt] = useState(_deferredPrompt);
+  const [isInstalled, setIsInstalled] = useState(
+    typeof window !== 'undefined' &&
+    window.matchMedia('(display-mode: standalone)').matches
+  );
 
   useEffect(() => {
-    // Already installed (standalone mode)
-    if (window.matchMedia('(display-mode: standalone)').matches) {
-      setIsInstalled(true);
-      return;
+    // Subscribe to future prompt changes (user dismisses, installs, etc.)
+    const listener = (prompt) => {
+      setInstallPrompt(prompt);
+      if (!prompt) setIsInstalled(true);
+    };
+    _promptListeners.push(listener);
+
+    // In case the event already fired before this effect ran, sync state
+    if (_deferredPrompt && !installPrompt) {
+      setInstallPrompt(_deferredPrompt);
     }
 
-    const handler = (e) => {
-      e.preventDefault();          // stop browser mini-bar
-      setInstallPrompt(e);         // save for later
+    return () => {
+      _promptListeners = _promptListeners.filter(fn => fn !== listener);
     };
-
-    window.addEventListener('beforeinstallprompt', handler);
-
-    // Fires after the user installs from our button
-    window.addEventListener('appinstalled', () => {
-      setIsInstalled(true);
-      setInstallPrompt(null);
-    });
-
-    return () => window.removeEventListener('beforeinstallprompt', handler);
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const install = useCallback(async () => {
     if (!installPrompt) return;
     installPrompt.prompt();
     const { outcome } = await installPrompt.userChoice;
     if (outcome === 'accepted') {
+      _deferredPrompt = null;
       setInstallPrompt(null);
       setIsInstalled(true);
+      notifyListeners();
     }
   }, [installPrompt]);
 
@@ -52,8 +74,7 @@ export function usePWAInstall() {
   };
 }
 
-// ── Push Notification ────────────────────────────────────────────────────────
-// Returns current permission state and a function to request + subscribe.
+// ── usePushPermission ─────────────────────────────────────────────────────────
 export function usePushPermission() {
   const { user } = useAuth();
   const [permission, setPermission] = useState(
@@ -61,7 +82,6 @@ export function usePushPermission() {
   );
   const [subscribing, setSubscribing] = useState(false);
 
-  // Check if push is supported
   const supported =
     typeof Notification !== 'undefined' &&
     'serviceWorker' in navigator &&
@@ -75,8 +95,9 @@ export function usePushPermission() {
       await subscribeToPush(supabase, user.id);
       setPermission('granted');
     } catch (e) {
-      // User denied or SW not ready — read actual permission state
-      setPermission(Notification.permission);
+      setPermission(
+        typeof Notification !== 'undefined' ? Notification.permission : 'denied'
+      );
       console.warn('[usePushPermission]', e.message);
     } finally {
       setSubscribing(false);
