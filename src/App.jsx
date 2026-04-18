@@ -41,33 +41,55 @@ function FullLoader() {
 }
 
 // ── RequireAuth ────────────────────────────────────────────────────────────
-// Only shows the loader while AuthContext is initialising (loading=true).
-// Once loading=false:
-//   • no session         → /login
-//   • session, no profile → /login with error state (trigger not set up)
-//   • wrong role         → correct home
-//   • all good           → render children
+// • loading=true  → show spinner (init in progress)
+// • no session    → go to /login
+// • no profile    → WAIT, don't redirect. Profile fetch may have timed out
+//                   transiently. Show a lightweight retry instead of kicking
+//                   the user to login with a scary warning.
+// • wrong role    → go to correct home
 function RequireAuth({ children, role }) {
-  const { session, profile, loading } = useAuth();
+  const { session, profile, loading, refreshProfile } = useAuth();
 
   if (loading) return <FullLoader />;
   if (!session) return <Navigate to="/login" replace />;
-  if (!profile) return <Navigate to="/login" replace state={{ error: 'profile_missing' }} />;
+
+  // Profile missing after init — transient network issue, not a DB problem.
+  // Show a small retry UI instead of redirecting to login.
+  if (!profile) return <ProfileRetry onRetry={refreshProfile} />;
+
   if (role && profile.role !== role) {
     return <Navigate to={profile.role === 'teacher' ? '/teacher' : '/student'} replace />;
   }
+
   return children;
 }
 
-// ── PublicRoute ────────────────────────────────────────────────────────────
-// Redirects logged-in users away from /login and /register.
-// If session exists but profile not yet loaded, still show the page —
-// the redirect will happen once profile arrives via onAuthStateChange.
+function ProfileRetry({ onRetry }) {
+  return (
+    <div style={{
+      display: 'flex', flexDirection: 'column', alignItems: 'center',
+      justifyContent: 'center', minHeight: '100dvh', gap: '1rem',
+      background: 'var(--background)', padding: '2rem',
+    }}>
+      <span className="material-symbols-outlined" style={{ fontSize: '3rem', color: 'var(--primary)', opacity: 0.5 }}>
+        cloud_off
+      </span>
+      <div style={{ fontFamily: 'var(--font-body)', fontWeight: 600, color: 'var(--on-surface)' }}>
+        Could not load your profile
+      </div>
+      <div style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)', textAlign: 'center', maxWidth: 280 }}>
+        This is usually a temporary network issue. Please try again.
+      </div>
+      <button className="btn btn-primary" onClick={onRetry}>
+        Retry
+      </button>
+    </div>
+  );
+}
+
 function PublicRoute({ children }) {
   const { session, profile, loading } = useAuth();
-
   if (loading) return <FullLoader />;
-  // Only redirect if we have BOTH session and profile so we know where to send them
   if (session && profile) {
     return <Navigate to={profile.role === 'teacher' ? '/teacher' : '/student'} replace />;
   }
@@ -83,10 +105,10 @@ function StudentRoute({ children }) {
 }
 
 function RootRedirect() {
-  const { session, profile, loading } = useAuth();
+  const { session, profile, loading, refreshProfile } = useAuth();
   if (loading) return <FullLoader />;
   if (!session) return <Navigate to="/login" replace />;
-  if (!profile) return <Navigate to="/login" replace state={{ error: 'profile_missing' }} />;
+  if (!profile) return <ProfileRetry onRetry={refreshProfile} />;
   return <Navigate to={profile.role === 'teacher' ? '/teacher' : '/student'} replace />;
 }
 
@@ -96,7 +118,6 @@ function AppRouter() {
       <Suspense fallback={<FullLoader />}>
         <Routes>
           <Route path="/" element={<RootRedirect />} />
-
           <Route path="/login"    element={<PublicRoute><Login /></PublicRoute>} />
           <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
           <Route path="/auth/google/callback" element={<GoogleCallback />} />

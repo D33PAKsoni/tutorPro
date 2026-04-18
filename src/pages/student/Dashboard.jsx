@@ -7,6 +7,8 @@ import TopBar from '../../components/shared/TopBar';
 import BottomNav from '../../components/shared/BottomNav';
 import PausedBanner from '../../components/shared/PausedBanner';
 import SiblingSwitch from '../../components/shared/SiblingSwitch';
+import PushPrompt from '../../components/shared/PushPrompt';
+import { usePushPermission } from '../../hooks/usePWA';
 import { format, isToday, isPast } from 'date-fns';
 
 export default function StudentDashboard() {
@@ -15,6 +17,16 @@ export default function StudentDashboard() {
   const [showSwitch, setShowSwitch] = useState(false);
   const [todayData, setTodayData] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  const { permission, supported } = usePushPermission();
+  const [showPushPrompt, setShowPushPrompt] = useState(false);
+
+  useEffect(() => {
+    if (supported && permission === 'default') {
+      const t = setTimeout(() => setShowPushPrompt(true), 1500);
+      return () => clearTimeout(t);
+    }
+  }, [supported, permission]);
 
   useEffect(() => {
     if (!activeStudent) return;
@@ -197,6 +209,10 @@ export default function StudentDashboard() {
       <BottomNav role="student" />
 
       {showSwitch && <SiblingSwitch onClose={() => setShowSwitch(false)} />}
+
+      {showPushPrompt && (
+        <PushPrompt onDismiss={() => setShowPushPrompt(false)} />
+      )}
     </div>
   );
 }

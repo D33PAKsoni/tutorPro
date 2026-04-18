@@ -5,6 +5,8 @@ import { supabase } from '../../supabase';
 import { useAuth } from '../../context/AuthContext';
 import TopBar from '../../components/shared/TopBar';
 import BottomNav from '../../components/shared/BottomNav';
+import PushPrompt from '../../components/shared/PushPrompt';
+import { usePushPermission } from '../../hooks/usePWA';
 import { initiateGoogleOAuth } from '../../lib/googleDrive';
 import { format } from 'date-fns';
 
@@ -27,6 +29,18 @@ export default function TeacherDashboard() {
   const [recentActivity, setRecentActivity] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showNoticeModal, setShowNoticeModal] = useState(false);
+
+  // Push notification prompt — shown once per session if not yet granted
+  const { permission, supported } = usePushPermission();
+  const [showPushPrompt, setShowPushPrompt] = useState(false);
+
+  useEffect(() => {
+    // Show prompt after a short delay so dashboard loads first
+    if (supported && permission === 'default') {
+      const t = setTimeout(() => setShowPushPrompt(true), 1500);
+      return () => clearTimeout(t);
+    }
+  }, [supported, permission]);
 
   useEffect(() => {
     if (!user) return;
@@ -249,6 +263,11 @@ export default function TeacherDashboard() {
       {/* Quick Notice Modal */}
       {showNoticeModal && (
         <QuickNoticeModal teacherId={user.id} onClose={() => setShowNoticeModal(false)} />
+      )}
+
+      {/* Push notification prompt — shown once per session */}
+      {showPushPrompt && (
+        <PushPrompt onDismiss={() => setShowPushPrompt(false)} />
       )}
     </div>
   );
