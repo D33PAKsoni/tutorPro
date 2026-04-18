@@ -264,25 +264,12 @@ function StudentFormModal({ teacherId, student, onClose, onSaved }) {
             password: form.password,
             full_name: form.full_name.trim(),
             username: form.username.toLowerCase(),
-          }
+          },
         });
-        // supabase.functions.invoke only throws authErr for network/HTTP-transport failures.
-        // When the edge function itself returns a 4xx JSON body with { error: "..." },
-        // it lands in authData.error instead — so we must check both.
+        // functions.invoke wraps HTTP errors: authErr = network/CORS failure;
+        // authData.error = the JSON error body the function returned
         if (authErr) {
-          // Provide a helpful message when running locally with the wrong VITE_SUPABASE_URL
-          const isNetworkErr =
-            authErr.message?.toLowerCase().includes('failed to fetch') ||
-            authErr.message?.toLowerCase().includes('networkerror') ||
-            authErr.message?.toLowerCase().includes('edge function');
-          if (isNetworkErr) {
-            throw new Error(
-              'Could not reach the edge function. ' +
-              'If running locally, make sure VITE_SUPABASE_URL in .env.local is set to ' +
-              'http://localhost:54321 and the function is running (supabase functions serve).'
-            );
-          }
-          throw authErr;
+          throw new Error(authErr.message || 'Could not reach the edge function. Check that create-student-user is deployed (supabase functions deploy create-student-user).');
         }
         if (authData?.error) {
           throw new Error(authData.error);

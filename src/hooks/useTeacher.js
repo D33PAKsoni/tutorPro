@@ -1,146 +1,163 @@
 // src/hooks/useTeacher.js
-// Centralised data hook for teacher-scoped operations.
-// Returns loading state, data arrays, and CRUD helpers.
+// Reusable data hooks for teacher-scoped queries
 
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../supabase';
 import { useAuth } from '../context/AuthContext';
+import { format, startOfMonth } from 'date-fns';
 
 /**
- * useTeacher()
- * Provides teacher dashboard stats and student list with full CRUD.
- *
- * Usage:
- *   const { students, stats, loading, addStudent, updateStudent, deleteStudent, togglePause } = useTeacher();
+ * Fetch all students belonging to the logged-in teacher.
+ * Optionally filter out paused students with { activeOnly: true }.
  */
-export function useTeacher() {
+export function useStudents({ activeOnly = false } = {}) {
   const { user } = useAuth();
   const [students, setStudents] = useState([]);
-  const [stats, setStats] = useState({ activeStudents: 0, pendingFees: 0, todayAttendance: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const fetchStudents = useCallback(async () => {
+  const fetch = useCallback(async () => {
     if (!user) return;
     setLoading(true);
     setError(null);
-    try {
-      const { data, error: err } = await supabase
-        .from('students')
-        .select('*')
-        .eq('teacher_id', user.id)
-        .order('full_name');
-      if (err) throw err;
-      setStudents(data || []);
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setLoading(false);
-    }
-  }, [user]);
+    let q = supabase
+      .from('students')
+      .select('*')
+      .eq('teacher_id', user.id)
+      .order('full_name');
+    if (activeOnly) q = q.eq('is_paused', false);
+    const { data, error: err } = await q;
+    if (err) setError(err.message);
+    else setStudents(data || []);
+    setLoading(false);
+  }, [user, activeOnly]);
 
-  const fetchStats = useCallback(async () => {
+  useEffect(() => { fetch(); }, [fetch]);
+
+  return { students, loading, error, refetch: fetch };
+}
+
+/**
+ * Fetch teacher dashboard stats: active students, pending fees, today's attendance count.
+ */
+export function useTeacherStats() {
+  const { user } = useAuth();
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const fetch = useCallback(async () => {
     if (!user) return;
-    try {
-      const today = new Date().toISOString().split('T')[0];
-      const [studRes, feesRes, attRes] = await Promise.all([
-        supabase
-          .from('students')
-          .select('id', { count: 'exact', head: true })
-          .eq('teacher_id', user.id)
-          .eq('is_paused', false),
-        supabase
-          .from('fees')
-          .select('amount, paid_amount, status')
-          .eq('teacher_id', user.id)
-          .neq('status', 'Paid')
-          .neq('status', 'Waived'),
-        supabase
-          .from('attendance')
-          .select('id', { count: 'exact', head: true })
-          .eq('teacher_id', user.id)
-          .eq('date', today),
-      ]);
+    setLoading(true);
+    const today = format(new Date(), 'yyyy-MM-dd');
 
-      const pendingFees = (feesRes.data || []).reduce(
-        (sum, f) => sum + (f.amount - (f.paid_amount || 0)), 0
-      );
+    const [studentsRes, feesRes, attendanceRes] = await Promise.all([
+      supabase
+        .from('students')
+        .select('id', { count: 'exact' })
+        .eq('teacher_id', user.id)
+        .eq('is_paused', false),
+      supabase
+        .from('fees')
+        .select('amount, paid_amount, status')
+        .eq('teacher_id', user.id),
+      supabase
+        .from('attendance')
+        .select('id', { count: 'exact' })
+        .eq('teacher_id', user.id)
+        .eq('date', today),
+    ]);
 
-      setStats({
-        activeStudents: studRes.count || 0,
-        pendingFees,
-        todayAttendance: attRes.count || 0,
-      });
-    } catch (e) {
-      console.error('Stats fetch error:', e);
-    }
-  }, [user]);
+    const pendingFees = (feesRes.data || [])
+      .filter(f => f.status !== 'Paid' && f.status !== 'Waived')
+      .reduce((sum, f) => sum + (f.amount - (f.paid_amount || 0)), 0);
 
-  useEffect(() => {
-    fetchStudents();
-    fetchStats();
-  }, [fetchStudents, fetchStats]);
-
-  // ---- CRUD helpers ----
-
-  const addStudent = useCallback(async (studentData) => {
-    if (!user) return { error: 'Not authenticated' };
-    const { data, error: err } = await supabase
-      .from('students')
-      .insert({ ...studentData, teacher_id: user.id })
-      .select()
-      .single();
-    if (!err) {
-      setStudents(prev => [...prev, data].sort((a, b) => a.full_name.localeCompare(b.full_name)));
-    }
-    return { data, error: err };
-  }, [user]);
-
-  const updateStudent = useCallback(async (id, updates) => {
-    const { data, error: err } = await supabase
-      .from('students')
-      .update(updates)
-      .eq('id', id)
-      .select()
-      .single();
-    if (!err) {
-      setStudents(prev => prev.map(s => s.id === id ? { ...s, ...data } : s));
-    }
-    return { data, error: err };
-  }, []);
-
-  const deleteStudent = useCallback(async (id) => {
-    const { error: err } = await supabase.from('students').delete().eq('id', id);
-    if (!err) {
-      setStudents(prev => prev.filter(s => s.id !== id));
-    }
-    return { error: err };
-  }, []);
-
-  const togglePause = useCallback(async (student) => {
-    return updateStudent(student.id, {
-      is_paused: !student.is_paused,
-      pause_reason: student.is_paused ? null : student.pause_reason,
+    setStats({
+      activeStudents: studentsRes.count || 0,
+      pendingFees,
+      todayAttendance: attendanceRes.count || 0,
     });
-  }, [updateStudent]);
+    setLoading(false);
+  }, [user]);
 
-  const updateAdvanceBalance = useCallback(async (studentId, newBalance) => {
-    return updateStudent(studentId, { advance_balance: parseFloat(newBalance) || 0 });
-  }, [updateStudent]);
+  useEffect(() => { fetch(); }, [fetch]);
 
-  return {
-    students,
-    stats,
-    loading,
-    error,
-    refresh: () => { fetchStudents(); fetchStats(); },
-    addStudent,
-    updateStudent,
-    deleteStudent,
-    togglePause,
-    updateAdvanceBalance,
-    // Computed subsets
-    activeStudents: students.filter(s => !s.is_paused),
-    pausedStudents: students.filter(s => s.is_paused),
-  };
+  return { stats, loading, refetch: fetch };
+}
+
+/**
+ * Fetch fees for a given month.
+ * Returns fees joined with student info.
+ */
+export function useTeacherFees(month) {
+  const { user } = useAuth();
+  const [fees, setFees] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetch = useCallback(async () => {
+    if (!user || !month) return;
+    setLoading(true);
+    const monthStr = format(startOfMonth(month), 'yyyy-MM-dd');
+    const { data } = await supabase
+      .from('fees')
+      .select('*, students(full_name, student_id, advance_balance, is_paused)')
+      .eq('teacher_id', user.id)
+      .eq('month', monthStr)
+      .order('due_date');
+    setFees(data || []);
+    setLoading(false);
+  }, [user, month]);
+
+  useEffect(() => { fetch(); }, [fetch]);
+
+  return { fees, loading, refetch: fetch };
+}
+
+/**
+ * Fetch assessments for the teacher, joined with student names.
+ */
+export function useTeacherAssessments() {
+  const { user } = useAuth();
+  const [assessments, setAssessments] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetch = useCallback(async () => {
+    if (!user) return;
+    setLoading(true);
+    const { data } = await supabase
+      .from('assessments')
+      .select('*, students(full_name, student_id)')
+      .eq('teacher_id', user.id)
+      .order('assessment_date', { ascending: false });
+    setAssessments(data || []);
+    setLoading(false);
+  }, [user]);
+
+  useEffect(() => { fetch(); }, [fetch]);
+
+  return { assessments, loading, refetch: fetch };
+}
+
+/**
+ * Fetch notices created by the teacher.
+ */
+export function useTeacherNotices() {
+  const { user } = useAuth();
+  const [notices, setNotices] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetch = useCallback(async () => {
+    if (!user) return;
+    setLoading(true);
+    const { data } = await supabase
+      .from('notices')
+      .select('*')
+      .eq('teacher_id', user.id)
+      .order('created_at', { ascending: false });
+    setNotices(data || []);
+    setLoading(false);
+  }, [user]);
+
+  useEffect(() => { fetch(); }, [fetch]);
+
+  return { notices, loading, refetch: fetch };
 }

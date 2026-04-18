@@ -1,19 +1,84 @@
 // src/pages/teacher/Attendance.jsx
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { supabase } from '../../supabase';
+import { useAuth } from '../../context/AuthContext';
 import TopBar from '../../components/shared/TopBar';
 import BottomNav from '../../components/shared/BottomNav';
-import StudentCard from '../../components/teacher/StudentCard';
-import AttendanceRadio from '../../components/teacher/AttendanceRadio';
-import { useAttendance } from '../../hooks/useAttendance';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
+
+const STATUSES = ['Present', 'Absent', 'Holiday', 'Extra Class'];
+
+function getInitials(name = '') {
+  return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+}
 
 export default function TeacherAttendance() {
-  const {
-    date, setDate,
-    students, statusMap, setStatus,
-    loading, saving, savedAt,
-    saveAll, stats, markAll,
-  } = useAttendance();
+  const { user } = useAuth();
+  const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [students, setStudents] = useState([]);
+  const [attendance, setAttendance] = useState({}); // { studentId: status }
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [savedAt, setSavedAt] = useState(null);
+
+  const loadData = useCallback(async () => {
+    if (!user) return;
+    setLoading(true);
+    try {
+      // Load active (non-paused) students
+      const { data: studs } = await supabase
+        .from('students')
+        .select('id, full_name, student_id, grade')
+        .eq('teacher_id', user.id)
+        .eq('is_paused', false)
+        .order('full_name');
+
+      // Load existing attendance for selected date
+      const { data: existing } = await supabase
+        .from('attendance')
+        .select('student_id, status')
+        .eq('teacher_id', user.id)
+        .eq('date', selectedDate);
+
+      const attMap = {};
+      (existing || []).forEach(a => { attMap[a.student_id] = a.status; });
+
+      setStudents(studs || []);
+      setAttendance(attMap);
+    } finally {
+      setLoading(false);
+    }
+  }, [user, selectedDate]);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
+  function handleStatusChange(studentId, status) {
+    setAttendance(prev => ({ ...prev, [studentId]: status }));
+  }
+
+  async function handleSave() {
+    if (!user) return;
+    setSaving(true);
+    try {
+      const rows = students.map(s => ({
+        teacher_id: user.id,
+        student_id: s.id,
+        date: selectedDate,
+        status: attendance[s.id] || 'Present',
+      }));
+
+      const { error } = await supabase
+        .from('attendance')
+        .upsert(rows, { onConflict: 'teacher_id,student_id,date' });
+
+      if (!error) setSavedAt(new Date());
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const markedCount = Object.keys(attendance).length;
+  const presentCount = Object.values(attendance).filter(s => s === 'Present').length;
 
   return (
     <div className="page-wrapper">
@@ -21,9 +86,12 @@ export default function TeacherAttendance() {
         title="Attendance"
         backTo="/teacher"
         actions={
-          <button className="btn btn-primary btn-sm" onClick={saveAll} disabled={saving || loading}>
+          <button className="btn btn-primary btn-sm" onClick={handleSave} disabled={saving || loading}>
             {saving ? <div className="spinner spinner--sm" /> : (
-              <><span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>save</span>Save</>
+              <>
+                <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>save</span>
+                Save
+              </>
             )}
           </button>
         }
@@ -38,23 +106,30 @@ export default function TeacherAttendance() {
             <div className="label-sm text-surface-variant">Attendance Date</div>
             <input
               type="date"
-              value={date}
-              onChange={e => setDate(e.target.value)}
-              style={{ fontFamily: 'var(--font-display)', fontSize: '1rem', fontWeight: 700, color: 'var(--primary)', background: 'transparent', border: 'none', outline: 'none', cursor: 'pointer', width: '100%' }}
+              value={selectedDate}
+              onChange={e => setSelectedDate(e.target.value)}
+              style={{
+                fontFamily: 'var(--font-display)',
+                fontSize: '1rem',
+                fontWeight: 700,
+                color: 'var(--primary)',
+                background: 'transparent',
+                border: 'none',
+                outline: 'none',
+                cursor: 'pointer',
+                width: '100%',
+              }}
             />
           </div>
         </div>
 
         {/* Summary chips */}
-        {stats.marked > 0 && (
-          <div style={{ display: 'flex', gap: 'var(--space-xs)', marginBottom: 'var(--space-md)', flexWrap: 'wrap', alignItems: 'center' }}>
-            <span className="chip chip-present">{stats.present} Present</span>
-            <span className="chip chip-absent">{stats.absent} Absent</span>
-            <span className="chip chip-holiday">{stats.holiday} Holiday</span>
-            <span className="chip chip-extra">{stats.extra} Extra</span>
-            <button className="btn btn-tertiary btn-sm" style={{ marginLeft: 'auto' }} onClick={() => markAll('Present')}>
-              Mark All Present
-            </button>
+        {markedCount > 0 && (
+          <div style={{ display: 'flex', gap: 'var(--space-xs)', marginBottom: 'var(--space-md)', flexWrap: 'wrap' }}>
+            <span className="chip chip-present">{presentCount} Present</span>
+            <span className="chip chip-absent">{Object.values(attendance).filter(s => s === 'Absent').length} Absent</span>
+            <span className="chip chip-holiday">{Object.values(attendance).filter(s => s === 'Holiday').length} Holiday</span>
+            <span className="chip chip-extra">{Object.values(attendance).filter(s => s === 'Extra Class').length} Extra</span>
           </div>
         )}
 
@@ -82,7 +157,7 @@ export default function TeacherAttendance() {
           <div className="empty-state">
             <span className="material-symbols-outlined empty-state__icon">groups</span>
             <div className="empty-state__title">No active students</div>
-            <div className="empty-state__body">All students are paused or none have been added yet</div>
+            <div className="empty-state__body">Add students or unpause paused accounts to mark attendance</div>
           </div>
         ) : (
           <div className="card-list">
@@ -90,23 +165,40 @@ export default function TeacherAttendance() {
               <div
                 key={student.id}
                 className="card-item animate-fade-up"
-                style={{ animationDelay: `${idx * 30}ms` }}
+                style={{ animationDelay: `${idx * 40}ms` }}
               >
-                {/* Student info row */}
-                <div style={{ marginBottom: 'var(--space-sm)' }}>
-                  <StudentCard
-                    student={student}
-                    compact
-                    rightSlot={null}
-                  />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)', marginBottom: 'var(--space-sm)' }}>
+                  <div className="student-avatar">{getInitials(student.full_name)}</div>
+                  <div style={{ flex: 1 }}>
+                    <div className="title-sm">{student.full_name}</div>
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                      <span className="student-id-badge">{student.student_id}</span>
+                      {student.grade && <span className="label-sm text-surface-variant">{student.grade}</span>}
+                    </div>
+                  </div>
                 </div>
-                {/* Status radio row */}
-                <AttendanceRadio
-                  studentId={student.id}
-                  value={statusMap[student.id] || ''}
-                  onChange={status => setStatus(student.id, status)}
-                  disabled={saving}
-                />
+
+                {/* Radio status group */}
+                <div className="attendance-radio-group">
+                  {STATUSES.map(status => (
+                    <div className="attendance-radio-option" key={status}>
+                      <input
+                        type="radio"
+                        id={`${student.id}-${status}`}
+                        name={`attendance-${student.id}`}
+                        value={status}
+                        checked={attendance[student.id] === status}
+                        onChange={() => handleStatusChange(student.id, status)}
+                      />
+                      <label
+                        htmlFor={`${student.id}-${status}`}
+                        data-status={status}
+                      >
+                        {status === 'Extra Class' ? 'Extra' : status}
+                      </label>
+                    </div>
+                  ))}
+                </div>
               </div>
             ))}
           </div>

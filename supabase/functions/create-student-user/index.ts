@@ -1,24 +1,21 @@
 // supabase/functions/create-student-user/index.ts
-// Edge Function: Creates an auth user for a student using the service role
-// Only callable by authenticated teachers
+// Creates a Supabase Auth user for a new student.
+// Must be called by an authenticated teacher — verified via JWT.
 
-import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { handleCors, errorResponse, jsonResponse } from '../_shared/cors.ts';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
+Deno.serve(async (req) => {
+  const cors = handleCors(req);
+  if (cors) return cors;
 
   try {
-    // Verify the calling user is authenticated
+    // ── 1. Authenticate the calling teacher ──────────────────────────────
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader) throw new Error('No authorization header');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return errorResponse('Missing or malformed Authorization header', 401);
+    }
+    const jwt = authHeader.replace('Bearer ', '');
 
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -26,37 +23,43 @@ serve(async (req) => {
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
-    // Verify caller is a teacher
-    const { data: { user: caller }, error: authErr } = await supabaseAdmin.auth.getUser(
-      authHeader.replace('Bearer ', '')
-    );
-    if (authErr || !caller) throw new Error('Unauthorized');
+    const { data: { user: caller }, error: authErr } = await supabaseAdmin.auth.getUser(jwt);
+    if (authErr || !caller) return errorResponse('Unauthorized', 401);
 
     const { data: profile } = await supabaseAdmin
       .from('profiles').select('role').eq('id', caller.id).single();
-    if (profile?.role !== 'teacher') throw new Error('Only teachers can create student accounts');
+    if (profile?.role !== 'teacher') {
+      return errorResponse('Only teachers can create student accounts', 403);
+    }
 
-    // Create the student user
-    const { email, password, full_name, username } = await req.json();
-    if (!email || !password || !full_name) throw new Error('Missing required fields');
+    // ── 2. Parse body ─────────────────────────────────────────────────────
+    const body = await req.json().catch(() => null);
+    if (!body) return errorResponse('Invalid JSON body');
 
+    const { email, password, full_name, username } = body;
+    if (!email || !password || !full_name || !username) {
+      return errorResponse('Missing required fields: email, password, full_name, username');
+    }
+
+    // ── 3. Create the auth user ───────────────────────────────────────────
     const { data: newUser, error: createErr } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
-      email_confirm: true, // Auto-confirm for students (no email verification)
+      email_confirm: true,
       user_metadata: { role: 'student', full_name, username },
     });
 
-    if (createErr) throw createErr;
+    if (createErr) {
+      if (createErr.message.includes('already')) {
+        return errorResponse(`Username "${username}" is already taken`, 409);
+      }
+      return errorResponse(createErr.message);
+    }
 
-    return new Response(JSON.stringify({ user_id: newUser.user.id, email }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 200,
-    });
-  } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 400,
-    });
+    return jsonResponse({ user_id: newUser.user.id, email });
+
+  } catch (err) {
+    console.error('[create-student-user]', err);
+    return errorResponse(err instanceof Error ? err.message : 'Internal server error', 500);
   }
 });

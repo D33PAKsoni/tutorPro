@@ -6,14 +6,14 @@ import TopBar from '../../components/shared/TopBar';
 import BottomNav from '../../components/shared/BottomNav';
 import { initiateGoogleOAuth, backupToDrive } from '../../lib/googleDrive';
 import { exportLocalBackup, importLocalBackup } from '../../lib/backup';
-import { usePush } from '../../hooks/usePush';
+import { subscribeToPush } from '../../lib/push';
 
 export default function TeacherSettings() {
   const { user, profile, signOut } = useAuth();
   const [backing, setBacking] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [pushStatus, setPushStatus] = useState('idle');
   const [msg, setMsg] = useState(null);
-  const { status: pushStatus, isSupported: pushSupported, enable: enablePush } = usePush();
 
   function showMsg(text, type = 'success') {
     setMsg({ text, type });
@@ -60,9 +60,15 @@ export default function TeacherSettings() {
   }
 
   async function handleEnablePush() {
-    await enablePush();
-    if (pushStatus !== 'error') showMsg('Push notifications enabled!');
-    else showMsg('Could not enable notifications', 'error');
+    setPushStatus('loading');
+    try {
+      await subscribeToPush(supabase, user.id);
+      setPushStatus('enabled');
+      showMsg('Push notifications enabled!');
+    } catch (e) {
+      setPushStatus('error');
+      showMsg('Could not enable notifications', 'error');
+    }
   }
 
   const hasDrive = !!profile?.google_drive_token;
@@ -158,25 +164,21 @@ export default function TeacherSettings() {
         {/* Notifications */}
         <div className="section-header"><span className="section-title">Notifications</span></div>
         <div className="card-list" style={{ marginBottom: 'var(--space-lg)' }}>
-          {/* Push Notifications */}
           <div className="card-item" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}>
             <div style={{ width: 40, height: 40, borderRadius: 'var(--radius-full)', background: 'var(--primary-fixed)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <span className="material-symbols-outlined" style={{ color: 'var(--primary)' }}>notifications</span>
             </div>
             <div style={{ flex: 1 }}>
               <div className="title-sm">Push Notifications</div>
-              <div className="label-sm text-surface-variant">
-                {!pushSupported ? 'Not supported in this browser' : 'Overdue fee alerts & new notices'}
-              </div>
+              <div className="label-sm text-surface-variant">Overdue fee alerts & reminders</div>
             </div>
             <button
               className={`btn btn-sm ${pushStatus === 'enabled' ? 'btn-secondary' : 'btn-primary'}`}
               onClick={handleEnablePush}
-              disabled={pushStatus === 'loading' || pushStatus === 'enabled' || !pushSupported}
+              disabled={pushStatus === 'loading' || pushStatus === 'enabled'}
             >
               {pushStatus === 'loading' ? <div className="spinner spinner--sm" /> :
-               pushStatus === 'enabled' ? 'Enabled ✓' :
-               pushStatus === 'denied'  ? 'Blocked' : 'Enable'}
+               pushStatus === 'enabled' ? 'Enabled ✓' : 'Enable'}
             </button>
           </div>
         </div>

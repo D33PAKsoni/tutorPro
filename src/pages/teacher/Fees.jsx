@@ -1,19 +1,79 @@
 // src/pages/teacher/Fees.jsx
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../supabase';
 import { useAuth } from '../../context/AuthContext';
 import TopBar from '../../components/shared/TopBar';
 import BottomNav from '../../components/shared/BottomNav';
-import FeeToggle from '../../components/teacher/FeeToggle';
-import StudentCard from '../../components/teacher/StudentCard';
-import { useTeacherFees } from '../../hooks/useFees';
-import { format, parseISO, startOfMonth, subMonths, addMonths } from 'date-fns';
+import { format, parseISO, startOfMonth, endOfMonth, subMonths, addMonths } from 'date-fns';
+
+function getInitials(name = '') {
+  return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+}
 
 export default function TeacherFees() {
   const { user } = useAuth();
   const [month, setMonth] = useState(startOfMonth(new Date()));
+  const [fees, setFees] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [generating, setGenerating] = useState(false);
   const [editFee, setEditFee] = useState(null);
-  const { fees, loading, generating, summary, togglePaid, generateFees, refresh } = useTeacherFees(month);
+
+  const loadFees = useCallback(async () => {
+    if (!user) return;
+    setLoading(true);
+    const monthStr = format(month, 'yyyy-MM-dd');
+    const { data } = await supabase
+      .from('fees')
+      .select('*, students(full_name, student_id, advance_balance, is_paused)')
+      .eq('teacher_id', user.id)
+      .eq('month', monthStr)
+      .order('due_date');
+    setFees(data || []);
+    setLoading(false);
+  }, [user, month]);
+
+  useEffect(() => { loadFees(); }, [loadFees]);
+
+  async function togglePaid(fee) {
+    const newStatus = fee.status === 'Paid' ? 'Pending' : 'Paid';
+    await supabase
+      .from('fees')
+      .update({
+        status: newStatus,
+        paid_amount: newStatus === 'Paid' ? fee.amount : 0,
+        paid_date: newStatus === 'Paid' ? format(new Date(), 'yyyy-MM-dd') : null,
+      })
+      .eq('id', fee.id);
+    loadFees();
+  }
+
+  async function generateFees() {
+    setGenerating(true);
+    // Fetch active students
+    const { data: students } = await supabase
+      .from('students')
+      .select('id, monthly_fee, fee_due_day')
+      .eq('teacher_id', user.id)
+      .eq('is_paused', false);
+
+    const monthStr = format(month, 'yyyy-MM-dd');
+    const rows = (students || [])
+      .filter(s => s.monthly_fee > 0)
+      .map(s => {
+        const dueDay = s.fee_due_day || 5;
+        const due = format(new Date(month.getFullYear(), month.getMonth(), dueDay), 'yyyy-MM-dd');
+        return { teacher_id: user.id, student_id: s.id, month: monthStr, amount: s.monthly_fee, due_date: due };
+      });
+
+    await supabase.from('fees').upsert(rows, { onConflict: 'teacher_id,student_id,month' });
+    setGenerating(false);
+    loadFees();
+  }
+
+  const totalAmount = fees.reduce((s, f) => s + f.amount, 0);
+  const totalPaid = fees.filter(f => f.status === 'Paid').reduce((s, f) => s + f.amount, 0);
+  const pendingCount = fees.filter(f => f.status !== 'Paid' && f.status !== 'Waived').length;
+  const overdueCount = fees.filter(f => f.status === 'Pending' && new Date(f.due_date) < new Date()).length;
 
   return (
     <div className="page-wrapper">
@@ -54,21 +114,21 @@ export default function TeacherFees() {
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 2 }}>
               <span style={{ fontSize: '1rem', fontWeight: 700, opacity: 0.6, color: 'var(--on-primary)' }}>₹</span>
               <span className="headline-sm" style={{ color: 'var(--on-primary)' }}>
-                {summary.collected.toLocaleString('en-IN')}
+                {totalPaid.toLocaleString('en-IN')}
               </span>
             </div>
             <div className="label-sm" style={{ opacity: 0.8, color: 'var(--on-primary-container)' }}>
-              of ₹{summary.total.toLocaleString('en-IN')}
+              of ₹{totalAmount.toLocaleString('en-IN')}
             </div>
           </div>
           <div className="card" style={{ background: 'var(--tertiary-fixed)' }}>
             <div className="label-sm text-surface-variant">Pending / Overdue</div>
             <div className="headline-sm" style={{ color: 'var(--on-tertiary-fixed-variant)', marginTop: 4 }}>
-              {summary.pending} <span style={{ fontSize: '1rem' }}>pending</span>
+              {pendingCount} <span style={{ fontSize: '1rem' }}>pending</span>
             </div>
-            {summary.overdue > 0 && (
+            {overdueCount > 0 && (
               <div className="label-sm" style={{ color: 'var(--tertiary)', marginTop: 2 }}>
-                {summary.overdue} overdue
+                {overdueCount} overdue
               </div>
             )}
           </div>
@@ -101,14 +161,40 @@ export default function TeacherFees() {
               const isOverdue = fee.status === 'Pending' && new Date(fee.due_date) < new Date();
               return (
                 <div key={fee.id} className="card-item" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}>
-                  <StudentCard
-                    student={fee.students || { full_name: 'Unknown', student_id: '—' }}
-                    compact
-                    onClick={() => setEditFee(fee)}
-                    rightSlot={
-                      <FeeToggle fee={fee} onToggle={togglePaid} />
-                    }
-                  />
+                  <div className="student-avatar" style={{ opacity: fee.students?.is_paused ? 0.5 : 1 }}>
+                    {getInitials(fee.students?.full_name || '')}
+                  </div>
+                  <div style={{ flex: 1, cursor: 'pointer' }} onClick={() => setEditFee(fee)}>
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                      <span className="title-sm">{fee.students?.full_name}</span>
+                      {isOverdue && <span className="chip chip-overdue">Overdue</span>}
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.75rem', marginTop: 2 }}>
+                      <span style={{ color: 'var(--on-surface-variant)', fontSize: '0.875rem' }}>
+                        <span style={{ color: 'var(--on-surface-variant)', fontWeight: 400 }}>₹</span>
+                        <span className="title-sm">{fee.amount?.toLocaleString('en-IN')}</span>
+                      </span>
+                      <span className="label-sm text-surface-variant">Due {format(parseISO(fee.due_date), 'dd MMM')}</span>
+                    </div>
+                    {fee.students?.advance_balance > 0 && (
+                      <div className="label-sm" style={{ color: 'var(--secondary)', marginTop: 2 }}>
+                        Advance: ₹{fee.students.advance_balance.toLocaleString('en-IN')}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Paid toggle */}
+                  <label className="toggle-switch" style={{ cursor: 'pointer' }} title={fee.status === 'Paid' ? 'Mark unpaid' : 'Mark paid'}>
+                    <input
+                      type="checkbox"
+                      checked={fee.status === 'Paid'}
+                      onChange={() => togglePaid(fee)}
+                      style={{ display: 'none' }}
+                    />
+                    <div className="toggle-track">
+                      <div className="toggle-thumb" />
+                    </div>
+                  </label>
                 </div>
               );
             })}

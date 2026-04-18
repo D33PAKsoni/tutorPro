@@ -1,14 +1,18 @@
 // src/pages/auth/Login.jsx
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
 export default function Login() {
   const { loginTeacher, loginStudent } = useAuth();
+  const location = useLocation();
   const [mode, setMode] = useState('teacher'); // 'teacher' | 'student'
   const [form, setForm] = useState({ identifier: '', password: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Show a helpful message when redirected due to missing profile row
+  const profileMissing = location.state?.error === 'profile_missing';
 
   async function handleLogin() {
     if (!form.identifier || !form.password) { setError('Please fill in all fields'); return; }
@@ -33,6 +37,20 @@ export default function Login() {
           <span className="material-symbols-outlined auth-logo__icon">school</span>
           <span className="auth-logo__text">Tuition Pro</span>
         </div>
+
+        {/* Show when DB trigger didn't create a profile row */}
+        {profileMissing && (
+          <div style={{
+            background: 'var(--tertiary-fixed)', color: 'var(--on-tertiary-fixed-variant)',
+            padding: 'var(--space-md)', borderRadius: 'var(--radius-md)',
+            fontSize: '0.8125rem', lineHeight: 1.5, marginBottom: 'var(--space-md)',
+          }}>
+            <strong>Setup issue detected.</strong> Your account was created but a profile row
+            is missing in the database. This usually means the <code>handle_new_user</code> trigger
+            hasn't been applied yet. Please run the SQL schema from BLUEPRINT.md in your
+            Supabase SQL Editor, then sign in again.
+          </div>
+        )}
 
         {/* Role toggle */}
         <div className="tabs" style={{ marginBottom: 'var(--space-lg)' }}>

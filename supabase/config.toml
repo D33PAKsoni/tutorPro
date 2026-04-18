@@ -1,4 +1,5 @@
 # supabase/config.toml
+
 [api]
 port = 54321
 schemas = ["public", "graphql_public"]
@@ -18,17 +19,35 @@ port = 54324
 
 [auth]
 site_url = "http://localhost:5173"
-additional_redirect_urls = ["https://localhost:5173"]
+additional_redirect_urls = [
+  "https://localhost:5173",
+  "http://localhost:5173/auth/google/callback",
+]
 jwt_expiry = 3600
 enable_signup = true
 
 [auth.email]
 enable_signup = true
-double_confirm_changes = true
+double_confirm_changes = false
 enable_confirmations = false
 
 [auth.external.google]
 enabled = false
 client_id = "env(GOOGLE_CLIENT_ID)"
 secret = "env(GOOGLE_CLIENT_SECRET)"
-redirect_uri = ""
+
+# ── Edge Functions ──────────────────────────────────────────────────────────
+# Each function's local env vars (for `supabase functions serve`).
+# These match what you set in the Supabase Dashboard → Project Settings → Secrets.
+
+[functions.create-student-user]
+verify_jwt = true
+
+[functions.exchange-google-token]
+verify_jwt = true
+
+[functions.send-push]
+verify_jwt = false   # called server-side with service role, not user JWT
+
+[functions.monthly-cron]
+verify_jwt = false   # protected by CRON_SECRET header instead

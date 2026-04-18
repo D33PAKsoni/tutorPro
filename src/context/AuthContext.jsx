@@ -1,48 +1,99 @@
 // src/context/AuthContext.jsx
 // Manages Supabase session, user role, and teacher/student profile
 
-import { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { supabase, toInternalEmail } from '../supabase';
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [session, setSession] = useState(null);
-  const [profile, setProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [session, setSession]   = useState(null);
+  const [profile, setProfile]   = useState(null);
+  const [loading, setLoading]   = useState(true);
+  // Track in-flight profile fetch so we never call setLoading(false) before it lands
+  const fetchingRef = useRef(false);
 
-  // Fetch profile from DB (includes role)
+  // ── fetchProfile ────────────────────────────────────────────────────────
+  // Returns the profile (or null) and surfaces errors instead of swallowing them.
   const fetchProfile = useCallback(async (userId) => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single();
-    if (!error) setProfile(data);
+    fetchingRef.current = true;
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();          // maybeSingle() returns null (not an error) when no row found
+
+      if (error) {
+        console.error('[AuthContext] fetchProfile error:', error.message);
+        // RLS block or network error — treat as "no profile" so the app doesn't
+        // spin forever; user will be redirected to login by RequireAuth
+        setProfile(null);
+        return null;
+      }
+
+      // If no profile row exists yet (trigger didn't fire or first-render race),
+      // wait 800 ms and retry once before giving up.
+      if (!data) {
+        await new Promise(r => setTimeout(r, 800));
+        const { data: retryData, error: retryErr } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .maybeSingle();
+
+        if (retryErr) {
+          console.error('[AuthContext] fetchProfile retry error:', retryErr.message);
+          setProfile(null);
+          return null;
+        }
+        setProfile(retryData ?? null);
+        return retryData ?? null;
+      }
+
+      setProfile(data);
+      return data;
+    } finally {
+      fetchingRef.current = false;
+    }
   }, []);
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session?.user) fetchProfile(session.user.id);
-      setLoading(false);
-    });
+    let mounted = true;
 
-    // Listen for auth changes
+    // ── Bootstrap: read persisted session from storage first ──────────────
+    // onAuthStateChange fires INITIAL_SESSION synchronously on mount with the
+    // stored session, so we rely on that as the single source of truth and
+    // only use getSession() as a fallback for environments where the listener
+    // fires late (some SSR / React-strict-double-invoke scenarios).
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setSession(session);
-        if (session?.user) {
-          await fetchProfile(session.user.id);
+      async (event, newSession) => {
+        if (!mounted) return;
+
+        setSession(newSession);
+
+        if (newSession?.user) {
+          await fetchProfile(newSession.user.id);
         } else {
           setProfile(null);
         }
-        setLoading(false);
+
+        // Only mark loading done after profile is settled
+        if (mounted) setLoading(false);
       }
     );
 
-    return () => subscription.unsubscribe();
+    // Safety net: if onAuthStateChange never fires (edge case), unblock the UI
+    const timeout = setTimeout(() => {
+      if (mounted && fetchingRef.current === false) setLoading(false);
+    }, 5000);
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+      clearTimeout(timeout);
+    };
   }, [fetchProfile]);
 
   // Teacher registration (email + password)
@@ -70,17 +121,6 @@ export function AuthProvider({ children }) {
     return { data, error };
   };
 
-  // Create student account (called by teacher)
-  const createStudentAccount = async ({ username, password, fullName, teacherId }) => {
-    const email = toInternalEmail(username);
-
-    // Use Edge Function to create user with service role
-    const { data, error } = await supabase.functions.invoke('create-student-user', {
-      body: { email, password, username, fullName, teacherId },
-    });
-    return { data, error };
-  };
-
   const signOut = async () => {
     await supabase.auth.signOut();
     setProfile(null);
@@ -101,7 +141,6 @@ export function AuthProvider({ children }) {
     registerTeacher,
     loginTeacher,
     loginStudent,
-    createStudentAccount,
     signOut,
     refreshProfile,
   };

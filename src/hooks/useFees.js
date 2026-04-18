@@ -1,105 +1,38 @@
 // src/hooks/useFees.js
-// Fees data hook — handles monthly fee loading, generation, status toggle,
-// and individual fee editing for teachers. Read-only view for students.
+// Fee management hooks — generate, toggle paid, and edit fee records
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { supabase } from '../supabase';
 import { useAuth } from '../context/AuthContext';
-import { format, startOfMonth, isPast, parseISO } from 'date-fns';
+import { format, startOfMonth } from 'date-fns';
 
 /**
- * useTeacherFees(month)
- * Full CRUD fees management for the teacher for a given month.
- *
- * Usage:
- *   const { fees, loading, generating, togglePaid, updateFee, generateFees, summary } = useTeacherFees(selectedMonth);
+ * Generate fee records for all active students in `month`.
+ * Skips students with is_paused = true and those with monthly_fee = 0.
+ * Uses upsert so running it twice is safe.
  */
-export function useTeacherFees(month) {
+export function useFeeGenerator() {
   const { user } = useAuth();
-  const [fees, setFees] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
-  const [error, setError] = useState(null);
 
-  const monthStr = format(month || startOfMonth(new Date()), 'yyyy-MM-dd');
-
-  const load = useCallback(async () => {
-    if (!user) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const { data, error: err } = await supabase
-        .from('fees')
-        .select('*, students(full_name, student_id, advance_balance, is_paused, grade)')
-        .eq('teacher_id', user.id)
-        .eq('month', monthStr)
-        .order('due_date');
-      if (err) throw err;
-      setFees(data || []);
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setLoading(false);
-    }
-  }, [user, monthStr]);
-
-  useEffect(() => { load(); }, [load]);
-
-  /** Toggle a fee between Paid and Pending */
-  const togglePaid = useCallback(async (fee) => {
-    const newStatus = fee.status === 'Paid' ? 'Pending' : 'Paid';
-    const { error: err } = await supabase
-      .from('fees')
-      .update({
-        status: newStatus,
-        paid_amount: newStatus === 'Paid' ? fee.amount : 0,
-        paid_date: newStatus === 'Paid' ? format(new Date(), 'yyyy-MM-dd') : null,
-      })
-      .eq('id', fee.id);
-    if (!err) {
-      setFees(prev => prev.map(f =>
-        f.id === fee.id
-          ? { ...f, status: newStatus, paid_amount: newStatus === 'Paid' ? fee.amount : 0 }
-          : f
-      ));
-    }
-    return { error: err };
-  }, []);
-
-  /** Update fee details (amount, due_date, status, remark, paid_amount) */
-  const updateFee = useCallback(async (id, updates) => {
-    const { data, error: err } = await supabase
-      .from('fees')
-      .update(updates)
-      .eq('id', id)
-      .select()
-      .single();
-    if (!err) {
-      setFees(prev => prev.map(f => f.id === id ? { ...f, ...data } : f));
-    }
-    return { data, error: err };
-  }, []);
-
-  /**
-   * Generate monthly fees for all active (non-paused) students.
-   * Uses UPSERT so running it twice doesn't create duplicates.
-   */
-  const generateFees = useCallback(async () => {
+  const generate = useCallback(async (month) => {
     if (!user) return;
     setGenerating(true);
-    try {
-      const { data: students } = await supabase
-        .from('students')
-        .select('id, monthly_fee, fee_due_day')
-        .eq('teacher_id', user.id)
-        .eq('is_paused', false)
-        .gt('monthly_fee', 0);
 
-      const monthDate = parseISO(monthStr);
-      const rows = (students || []).map(s => {
-        const dueDay = Math.min(s.fee_due_day || 5, 28);
-        const dueDate = format(
-          new Date(monthDate.getFullYear(), monthDate.getMonth(), dueDay),
+    const { data: students } = await supabase
+      .from('students')
+      .select('id, monthly_fee, fee_due_day')
+      .eq('teacher_id', user.id)
+      .eq('is_paused', false);
+
+    const monthStr = format(startOfMonth(month), 'yyyy-MM-dd');
+
+    const rows = (students || [])
+      .filter(s => (s.monthly_fee || 0) > 0)
+      .map(s => {
+        const dueDay = s.fee_due_day || 5;
+        const due = format(
+          new Date(month.getFullYear(), month.getMonth(), dueDay),
           'yyyy-MM-dd'
         );
         return {
@@ -107,60 +40,70 @@ export function useTeacherFees(month) {
           student_id: s.id,
           month: monthStr,
           amount: s.monthly_fee,
-          due_date: dueDate,
+          due_date: due,
           status: 'Pending',
         };
       });
 
-      if (rows.length > 0) {
-        await supabase.from('fees').upsert(rows, { onConflict: 'teacher_id,student_id,month' });
-      }
-      await load();
-    } finally {
-      setGenerating(false);
-    }
-  }, [user, monthStr, load]);
+    const { error } = await supabase
+      .from('fees')
+      .upsert(rows, { onConflict: 'teacher_id,student_id,month' });
 
-  // ---- Summary stats ----
-  const summary = {
-    total: fees.reduce((s, f) => s + f.amount, 0),
-    collected: fees.filter(f => f.status === 'Paid').reduce((s, f) => s + f.amount, 0),
-    pending: fees.filter(f => f.status === 'Pending').length,
-    overdue: fees.filter(f => f.status === 'Pending' && isPast(new Date(f.due_date))).length,
-    waived: fees.filter(f => f.status === 'Waived').length,
-  };
+    setGenerating(false);
+    return !error;
+  }, [user]);
 
-  return { fees, loading, generating, error, summary, togglePaid, updateFee, generateFees, refresh: load };
+  return { generate, generating };
 }
 
 /**
- * useStudentFees(studentId, month)
- * Read-only fee view for students.
- * Does NOT expose paid_date or any ledger/history details.
+ * Toggle a single fee's paid/pending status.
+ * Returns a mutate function and loading state.
  */
-export function useStudentFees(studentId, month) {
-  const [fees, setFees] = useState([]);
-  const [loading, setLoading] = useState(true);
+export function useFeeToggle(onSuccess) {
+  const [toggling, setToggling] = useState(null); // stores fee.id being toggled
 
-  const monthStr = format(month || startOfMonth(new Date()), 'yyyy-MM-dd');
-
-  useEffect(() => {
-    if (!studentId) return;
-    setLoading(true);
-    supabase
+  const toggle = useCallback(async (fee) => {
+    setToggling(fee.id);
+    const newStatus = fee.status === 'Paid' ? 'Pending' : 'Paid';
+    await supabase
       .from('fees')
-      // Intentionally NOT selecting paid_date or paid_amount — student privacy
-      .select('id, amount, due_date, status, month, remark')
-      .eq('student_id', studentId)
-      .eq('month', monthStr)
-      .then(({ data }) => {
-        setFees(data || []);
-        setLoading(false);
-      });
-  }, [studentId, monthStr]);
+      .update({
+        status: newStatus,
+        paid_amount: newStatus === 'Paid' ? fee.amount : 0,
+        paid_date: newStatus === 'Paid' ? format(new Date(), 'yyyy-MM-dd') : null,
+      })
+      .eq('id', fee.id);
+    setToggling(null);
+    onSuccess?.();
+  }, [onSuccess]);
 
-  const overdueFees = fees.filter(f => f.status === 'Pending' && isPast(new Date(f.due_date)));
-  const pendingFees = fees.filter(f => f.status !== 'Paid' && f.status !== 'Waived');
+  return { toggle, toggling };
+}
 
-  return { fees, loading, overdueFees, pendingFees };
+/**
+ * Save detailed edits to a fee record (amount, due date, status, remarks).
+ */
+export function useFeeEdit(onSuccess) {
+  const [saving, setSaving] = useState(false);
+
+  const save = useCallback(async (feeId, form) => {
+    setSaving(true);
+    const { error } = await supabase
+      .from('fees')
+      .update({
+        amount: parseFloat(form.amount),
+        due_date: form.due_date,
+        status: form.status,
+        paid_amount: parseFloat(form.paid_amount) || 0,
+        paid_date: form.status === 'Paid' ? format(new Date(), 'yyyy-MM-dd') : null,
+        remark: form.remark,
+      })
+      .eq('id', feeId);
+    setSaving(false);
+    if (!error) onSuccess?.();
+    return !error;
+  }, [onSuccess]);
+
+  return { save, saving };
 }

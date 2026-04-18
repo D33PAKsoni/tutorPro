@@ -1,65 +1,58 @@
 // src/components/teacher/AttendanceRadio.jsx
-// The 4-option radio group for marking a single student's attendance status.
-// Extracted as a reusable component used by the Attendance page.
+// Radio button group for marking a single student's attendance status
 
 const STATUSES = ['Present', 'Absent', 'Holiday', 'Extra Class'];
 
-// Short labels for compact display
-const SHORT_LABELS = {
-  'Present': 'Present',
-  'Absent': 'Absent',
-  'Holiday': 'Holiday',
-  'Extra Class': 'Extra',
-};
-
-// Per-status colors when selected
-const SELECTED_STYLES = {
-  'Present':     { background: 'var(--primary)',                  color: 'var(--on-primary)' },
-  'Absent':      { background: 'var(--tertiary-container)',       color: 'var(--on-tertiary-container)' },
-  'Holiday':     { background: 'var(--secondary-container)',      color: 'var(--on-secondary-fixed-variant)' },
-  'Extra Class': { background: 'var(--primary-fixed)',            color: 'var(--on-primary-fixed-variant)' },
-};
+function getInitials(name = '') {
+  return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+}
 
 /**
- * AttendanceRadio
- * @param {string}   studentId   - Unique name-spacing for radio inputs
- * @param {string}   value       - Currently selected status
- * @param {function} onChange    - (status: string) => void
- * @param {boolean}  [disabled]  - Disables all options (e.g. while saving)
+ * Props:
+ *  - student: { id, full_name, student_id, grade }
+ *  - value: current status string (or undefined)
+ *  - onChange(studentId, status): called when a radio is selected
+ *  - index: used for staggered animation delay
  */
-export default function AttendanceRadio({ studentId, value, onChange, disabled = false }) {
+export default function AttendanceRadio({ student, value, onChange, index = 0 }) {
   return (
     <div
-      className="attendance-radio-group"
-      role="radiogroup"
-      aria-label="Attendance status"
+      className="card-item animate-fade-up"
+      style={{ animationDelay: `${index * 40}ms` }}
     >
-      {STATUSES.map(status => {
-        const isChecked = value === status;
-        const id = `att-${studentId}-${status.replace(/\s+/g, '-')}`;
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)', marginBottom: 'var(--space-sm)' }}>
+        <div className="student-avatar">{getInitials(student.full_name)}</div>
+        <div style={{ flex: 1 }}>
+          <div className="title-sm">{student.full_name}</div>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <span className="student-id-badge">{student.student_id}</span>
+            {student.grade && (
+              <span className="label-sm text-surface-variant">{student.grade}</span>
+            )}
+          </div>
+        </div>
+      </div>
 
-        return (
+      <div className="attendance-radio-group">
+        {STATUSES.map(status => (
           <div className="attendance-radio-option" key={status}>
             <input
               type="radio"
-              id={id}
-              name={`attendance-${studentId}`}
+              id={`${student.id}-${status}`}
+              name={`attendance-${student.id}`}
               value={status}
-              checked={isChecked}
-              onChange={() => !disabled && onChange(status)}
-              disabled={disabled}
-              aria-label={status}
+              checked={value === status}
+              onChange={() => onChange?.(student.id, status)}
             />
             <label
-              htmlFor={id}
+              htmlFor={`${student.id}-${status}`}
               data-status={status}
-              style={isChecked ? SELECTED_STYLES[status] : undefined}
             >
-              {SHORT_LABELS[status]}
+              {status === 'Extra Class' ? 'Extra' : status}
             </label>
           </div>
-        );
-      })}
+        ))}
+      </div>
     </div>
   );
 }

@@ -3,10 +3,8 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../../supabase';
 import { useAuth } from '../../context/AuthContext';
-import { useTeacher } from '../../hooks/useTeacher';
 import TopBar from '../../components/shared/TopBar';
 import BottomNav from '../../components/shared/BottomNav';
-import NoticeComposer from '../../components/teacher/NoticeComposer';
 import { initiateGoogleOAuth } from '../../lib/googleDrive';
 import { format } from 'date-fns';
 
@@ -25,38 +23,71 @@ function StatSkeleton() {
 
 export default function TeacherDashboard() {
   const { user, profile, signOut } = useAuth();
-  const { stats, loading: statsLoading } = useTeacher();
+  const [stats, setStats] = useState(null);
   const [recentActivity, setRecentActivity] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showNoticeModal, setShowNoticeModal] = useState(false);
-  const [students, setStudents] = useState([]);
 
   useEffect(() => {
     if (!user) return;
-    loadActivity();
-    // Fetch students list for NoticeComposer
-    supabase.from('students').select('id, full_name').eq('teacher_id', user.id).eq('is_paused', false)
-      .then(({ data }) => setStudents(data || []));
+    loadStats();
   }, [user]);
 
-  async function loadActivity() {
+  async function loadStats() {
     setLoading(true);
     try {
+      const today = format(new Date(), 'yyyy-MM-dd');
+
+      const [studentsRes, feesRes, attendanceRes] = await Promise.all([
+        supabase.from('students').select('id', { count: 'exact' }).eq('teacher_id', user.id).eq('is_paused', false),
+        supabase.from('fees').select('amount, paid_amount, status').eq('teacher_id', user.id),
+        supabase.from('attendance').select('id', { count: 'exact' }).eq('teacher_id', user.id).eq('date', today),
+      ]);
+
+      const activeStudents = studentsRes.count || 0;
+
+      // Calculate pending fees total
+      const pendingFees = (feesRes.data || [])
+        .filter(f => f.status !== 'Paid' && f.status !== 'Waived')
+        .reduce((sum, f) => sum + (f.amount - (f.paid_amount || 0)), 0);
+
+      const todayAttendance = attendanceRes.count || 0;
+
+      setStats({ activeStudents, pendingFees, todayAttendance });
+
+      // Recent activity: last 5 fee payments + last 5 attendance marks
       const [recentFees, recentAttendance] = await Promise.all([
-        supabase.from('fees').select('*, students(full_name)').eq('teacher_id', user.id).eq('status', 'Paid').order('updated_at', { ascending: false }).limit(3),
-        supabase.from('attendance').select('*, students(full_name)').eq('teacher_id', user.id).order('created_at', { ascending: false }).limit(3),
+        supabase.from('fees')
+          .select('*, students(full_name)')
+          .eq('teacher_id', user.id)
+          .eq('status', 'Paid')
+          .order('updated_at', { ascending: false })
+          .limit(3),
+        supabase.from('attendance')
+          .select('*, students(full_name)')
+          .eq('teacher_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(3),
       ]);
 
       const activity = [
         ...(recentFees.data || []).map(f => ({
-          type: 'fee', title: `Fee Collected: ${f.students?.full_name}`,
-          sub: `₹${f.amount?.toLocaleString('en-IN')}`, icon: 'payments',
-          bg: 'var(--primary-fixed)', iconColor: 'var(--primary)', time: f.updated_at,
+          type: 'fee',
+          title: `Fee Collected: ${f.students?.full_name}`,
+          sub: `₹${f.amount?.toLocaleString('en-IN')}`,
+          icon: 'payments',
+          bg: 'var(--primary-fixed)',
+          iconColor: 'var(--primary)',
+          time: f.updated_at,
         })),
         ...(recentAttendance.data || []).map(a => ({
-          type: 'attendance', title: `Attendance: ${a.students?.full_name}`,
-          sub: a.status, icon: 'person_check',
-          bg: 'var(--secondary-container)', iconColor: 'var(--secondary)', time: a.created_at,
+          type: 'attendance',
+          title: `Attendance: ${a.students?.full_name}`,
+          sub: a.status,
+          icon: 'person_check',
+          bg: 'var(--secondary-container)',
+          iconColor: 'var(--secondary)',
+          time: a.created_at,
         })),
       ].sort((a, b) => new Date(b.time) - new Date(a.time)).slice(0, 5);
 
@@ -97,7 +128,7 @@ export default function TeacherDashboard() {
             <div className="hero-card__title">Welcome back, {teacherName.split(' ')[0]}</div>
           </div>
           <div>
-            {statsLoading ? <StatSkeleton /> : (
+            {loading ? <StatSkeleton /> : (
               <div className="hero-card__stat-group">
                 <div className="hero-stat">
                   <span className="hero-stat__number">{stats?.activeStudents ?? 0}</span>
@@ -217,13 +248,65 @@ export default function TeacherDashboard() {
 
       {/* Quick Notice Modal */}
       {showNoticeModal && (
-        <NoticeComposer
-          teacherId={user.id}
-          students={students}
-          onClose={() => setShowNoticeModal(false)}
-          onSaved={() => { setShowNoticeModal(false); loadActivity(); }}
-        />
+        <QuickNoticeModal teacherId={user.id} onClose={() => setShowNoticeModal(false)} />
       )}
+    </div>
+  );
+}
+
+function QuickNoticeModal({ teacherId, onClose }) {
+  const [title, setTitle] = useState('');
+  const [content, setContent] = useState('');
+  const [sending, setSending] = useState(false);
+
+  async function handleSend() {
+    if (!title.trim() || !content.trim()) return;
+    setSending(true);
+    await supabase.from('notices').insert({
+      teacher_id: teacherId,
+      title: title.trim(),
+      content: content.trim(),
+      recipient_type: 'all',
+    });
+    setSending(false);
+    onClose();
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-sheet" onClick={e => e.stopPropagation()}>
+        <div className="modal-handle" />
+        <div className="modal-title">New Notice</div>
+
+        <div className="field">
+          <label className="field__label">Title</label>
+          <input
+            className="field__input"
+            placeholder="e.g. Class rescheduled to Monday"
+            value={title}
+            onChange={e => setTitle(e.target.value)}
+          />
+        </div>
+
+        <div className="field">
+          <label className="field__label">Content</label>
+          <textarea
+            className="field__input"
+            placeholder="Write notice content here..."
+            value={content}
+            onChange={e => setContent(e.target.value)}
+            rows={4}
+            style={{ resize: 'vertical' }}
+          />
+        </div>
+
+        <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
+          <button className="btn btn-tertiary" style={{ flex: 1 }} onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary" style={{ flex: 1 }} onClick={handleSend} disabled={sending}>
+            {sending ? <div className="spinner spinner--sm" /> : 'Broadcast'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

@@ -1,100 +1,168 @@
 // src/hooks/useStudent.js
-// Data hook for a student's own records (attendance, fees, assessments, notices).
-// Reads from StudentContext for the active student ID.
+// Reusable data hooks for student-scoped queries (read-only)
 
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../supabase';
 import { useStudent as useStudentContext } from '../context/StudentContext';
-import { format, startOfMonth, subMonths } from 'date-fns';
+import { format, startOfMonth } from 'date-fns';
 
 /**
- * useStudentData()
- * Returns all records for the currently active student.
- *
- * Usage:
- *   const { attendance, fees, assessments, notices, loading } = useStudentData();
+ * Fetch today's attendance, pending fees, and recent notices for the active student.
+ * Used on the student dashboard.
  */
-export function useStudentData() {
-  const { activeStudentId, activeStudent } = useStudentContext();
-  const [attendance, setAttendance] = useState([]);
+export function useStudentToday() {
+  const { activeStudent } = useStudentContext();
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const fetch = useCallback(async () => {
+    if (!activeStudent) return;
+    setLoading(true);
+    const today = format(new Date(), 'yyyy-MM-dd');
+
+    const [attRes, feesRes, noticesRes] = await Promise.all([
+      supabase
+        .from('attendance')
+        .select('status, remark')
+        .eq('student_id', activeStudent.id)
+        .eq('date', today)
+        .maybeSingle(),
+      supabase
+        .from('fees')
+        .select('amount, due_date, status')
+        .eq('student_id', activeStudent.id)
+        .neq('status', 'Paid')
+        .neq('status', 'Waived')
+        .order('due_date')
+        .limit(3),
+      supabase
+        .from('notices')
+        .select('id, title, content, created_at')
+        .order('created_at', { ascending: false })
+        .limit(3),
+    ]);
+
+    setData({
+      attendance: attRes.data,
+      pendingFees: feesRes.data || [],
+      notices: noticesRes.data || [],
+    });
+    setLoading(false);
+  }, [activeStudent?.id]);
+
+  useEffect(() => { fetch(); }, [fetch]);
+
+  return { today: data, loading, refetch: fetch };
+}
+
+/**
+ * Fetch attendance records for the active student within a given month.
+ */
+export function useStudentAttendance(month) {
+  const { activeStudent } = useStudentContext();
+  const [records, setRecords] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetch = useCallback(async () => {
+    if (!activeStudent || !month) return;
+    setLoading(true);
+    const year = month.getFullYear();
+    const mon = month.getMonth();
+    const from = format(new Date(year, mon, 1), 'yyyy-MM-dd');
+    const to = format(new Date(year, mon + 1, 0), 'yyyy-MM-dd');
+
+    const { data } = await supabase
+      .from('attendance')
+      .select('*')
+      .eq('student_id', activeStudent.id)
+      .gte('date', from)
+      .lte('date', to)
+      .order('date', { ascending: false });
+
+    setRecords(data || []);
+    setLoading(false);
+  }, [activeStudent?.id, month]);
+
+  useEffect(() => { fetch(); }, [fetch]);
+
+  return { records, loading, refetch: fetch };
+}
+
+/**
+ * Fetch fee records for the active student for a given month.
+ * Does NOT include payment ledger (privacy requirement).
+ */
+export function useStudentFees(month) {
+  const { activeStudent } = useStudentContext();
   const [fees, setFees] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetch = useCallback(async () => {
+    if (!activeStudent || !month) return;
+    setLoading(true);
+    const monthStr = format(startOfMonth(month), 'yyyy-MM-dd');
+
+    const { data } = await supabase
+      .from('fees')
+      .select('id, amount, due_date, status, month, remark')
+      .eq('student_id', activeStudent.id)
+      .eq('month', monthStr);
+
+    setFees(data || []);
+    setLoading(false);
+  }, [activeStudent?.id, month]);
+
+  useEffect(() => { fetch(); }, [fetch]);
+
+  return { fees, loading, refetch: fetch };
+}
+
+/**
+ * Fetch assessments for the active student.
+ */
+export function useStudentAssessments() {
+  const { activeStudent } = useStudentContext();
   const [assessments, setAssessments] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetch = useCallback(async () => {
+    if (!activeStudent) return;
+    setLoading(true);
+    const { data } = await supabase
+      .from('assessments')
+      .select('*')
+      .eq('student_id', activeStudent.id)
+      .order('assessment_date', { ascending: false });
+    setAssessments(data || []);
+    setLoading(false);
+  }, [activeStudent?.id]);
+
+  useEffect(() => { fetch(); }, [fetch]);
+
+  return { assessments, loading, refetch: fetch };
+}
+
+/**
+ * Fetch notices visible to the active student.
+ */
+export function useStudentNotices() {
+  const { activeStudent } = useStudentContext();
   const [notices, setNotices] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
 
-  const fetchAll = useCallback(async () => {
-    if (!activeStudentId) { setLoading(false); return; }
+  const fetch = useCallback(async () => {
+    if (!activeStudent) return;
     setLoading(true);
-    setError(null);
-    try {
-      // Last 3 months of attendance
-      const threeMonthsAgo = format(subMonths(new Date(), 3), 'yyyy-MM-dd');
-      const today = format(new Date(), 'yyyy-MM-dd');
+    const { data } = await supabase
+      .from('notices')
+      .select('*')
+      .order('is_pinned', { ascending: false })
+      .order('created_at', { ascending: false });
+    setNotices(data || []);
+    setLoading(false);
+  }, [activeStudent?.id]);
 
-      const [attRes, feesRes, assessRes, noticeRes] = await Promise.all([
-        supabase
-          .from('attendance')
-          .select('*')
-          .eq('student_id', activeStudentId)
-          .gte('date', threeMonthsAgo)
-          .lte('date', today)
-          .order('date', { ascending: false }),
-        supabase
-          .from('fees')
-          .select('*')
-          .eq('student_id', activeStudentId)
-          .order('due_date', { ascending: false }),
-        supabase
-          .from('assessments')
-          .select('*')
-          .eq('student_id', activeStudentId)
-          .order('assessment_date', { ascending: false }),
-        supabase
-          .from('notices')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(50),
-      ]);
+  useEffect(() => { fetch(); }, [fetch]);
 
-      if (attRes.error) throw attRes.error;
-      setAttendance(attRes.data || []);
-      setFees(feesRes.data || []);
-      setAssessments(assessRes.data || []);
-      setNotices(noticeRes.data || []);
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setLoading(false);
-    }
-  }, [activeStudentId]);
-
-  useEffect(() => { fetchAll(); }, [fetchAll]);
-
-  // ---- Computed values ----
-  const today = format(new Date(), 'yyyy-MM-dd');
-  const todayAttendance = attendance.find(a => a.date === today) || null;
-  const pendingFees = fees.filter(f => f.status !== 'Paid' && f.status !== 'Waived');
-  const overdueFees = pendingFees.filter(f => new Date(f.due_date) < new Date());
-  const currentMonthFees = fees.filter(
-    f => f.month === format(startOfMonth(new Date()), 'yyyy-MM-dd')
-  );
-
-  return {
-    student: activeStudent,
-    attendance,
-    fees,
-    assessments,
-    notices,
-    loading,
-    error,
-    refresh: fetchAll,
-    // Computed
-    todayAttendance,
-    pendingFees,
-    overdueFees,
-    currentMonthFees,
-    isPaused: activeStudent?.is_paused ?? false,
-    advanceBalance: activeStudent?.advance_balance ?? 0,
-  };
+  return { notices, loading, refetch: fetch };
 }

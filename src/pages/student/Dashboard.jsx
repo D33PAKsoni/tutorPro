@@ -7,9 +7,7 @@ import TopBar from '../../components/shared/TopBar';
 import BottomNav from '../../components/shared/BottomNav';
 import PausedBanner from '../../components/shared/PausedBanner';
 import SiblingSwitch from '../../components/shared/SiblingSwitch';
-import TodayCard from '../../components/student/TodayCard';
-import FeeCard from '../../components/student/FeeCard';
-import { format, isPast } from 'date-fns';
+import { format, isToday, isPast } from 'date-fns';
 
 export default function StudentDashboard() {
   const { signOut } = useAuth();
@@ -107,21 +105,63 @@ export default function StudentDashboard() {
           <span className="material-symbols-outlined hero-card__bg-icon">school</span>
         </div>
 
-        {/* Today bento grid using TodayCard component */}
-        <TodayCard
-          todayAttendance={todayData?.attendance || null}
-          noticeCount={todayData?.notices?.length || 0}
-          pendingFeeCount={todayData?.pendingFees?.length || 0}
-        />
+        {/* Bento Grid: Attendance + Advance */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)', marginBottom: 'var(--space-lg)' }}>
+          <div className="card ghost-border">
+            <div className="label-sm text-surface-variant">Attendance</div>
+            <div style={{ marginTop: 'var(--space-sm)' }}>
+              {loading ? (
+                <div className="skeleton" style={{ height: 24, width: '70%' }} />
+              ) : todayData?.attendance ? (
+                <span className={`chip chip-${todayData.attendance.status.toLowerCase().replace(' ', '-')}`}>
+                  {todayData.attendance.status}
+                </span>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <div className="pulse-dot" style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--primary)' }} />
+                  <span className="title-sm text-primary">Pending</span>
+                </div>
+              )}
+            </div>
+            <div className="label-sm text-surface-variant" style={{ marginTop: 4 }}>
+              {todayData?.attendance?.remark || 'Class today'}
+            </div>
+          </div>
 
-        {/* Pending Fee Highlight using FeeCard component */}
+          <div className="card ghost-border">
+            <div className="label-sm text-surface-variant">Pending Fees</div>
+            <div className="headline-sm text-primary" style={{ marginTop: 'var(--space-sm)' }}>
+              {loading ? <div className="skeleton" style={{ height: 28, width: 60 }} /> : todayData?.pendingFees?.length || 0}
+            </div>
+            <div className="label-sm text-surface-variant" style={{ marginTop: 4 }}>
+              {overdueCount > 0 ? `${overdueCount} overdue` : 'All clear'}
+            </div>
+          </div>
+        </div>
+
+        {/* Pending Fee Highlight */}
         {!loading && todayData?.pendingFees?.length > 0 && (
           <>
             <div className="section-header"><span className="section-title">Due Fees</span></div>
             <div className="card-list" style={{ marginBottom: 'var(--space-lg)' }}>
-              {todayData.pendingFees.map(fee => (
-                <FeeCard key={fee.id || fee.due_date} fee={fee} />
-              ))}
+              {todayData.pendingFees.map(fee => {
+                const isOverdue = isPast(new Date(fee.due_date));
+                return (
+                  <div key={fee.due_date} className="card-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      {isOverdue && <span className="chip chip-overdue" style={{ marginBottom: 4, display: 'block' }}>Overdue</span>}
+                      <div className="title-sm">Monthly Tuition Fee</div>
+                      <div className="label-sm text-surface-variant">Due: {format(new Date(fee.due_date), 'dd MMM yyyy')}</div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 2 }}>
+                        <span className="label-sm text-surface-variant">₹</span>
+                        <span className="headline-sm text-primary">{fee.amount?.toLocaleString('en-IN')}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </>
         )}
