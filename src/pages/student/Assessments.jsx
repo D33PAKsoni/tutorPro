@@ -66,7 +66,6 @@ export default function StudentAssessments() {
               <AssessmentCard key={a.id} assessment={a} />
             ))}
           </div>
-          </div>
         )}
         <div style={{ height: 'var(--space-md)' }} />
       </main>
