@@ -6,7 +6,7 @@ import TopBar from '../../components/shared/TopBar';
 import BottomNav from '../../components/shared/BottomNav';
 import { initiateGoogleOAuth, backupToDrive } from '../../lib/googleDrive';
 import { exportLocalBackup, importLocalBackup } from '../../lib/backup';
-import { subscribeToPush } from '../../lib/push';
+import { usePWAInstall, usePushPermission } from '../../hooks/usePWA';
 
 export default function TeacherSettings() {
   const { user, profile, signOut } = useAuth();
@@ -14,6 +14,9 @@ export default function TeacherSettings() {
   const [importing, setImporting] = useState(false);
   const [pushStatus, setPushStatus] = useState('idle');
   const [msg, setMsg] = useState(null);
+
+  const { canInstall, isInstalled, install } = usePWAInstall();
+  const { permission: pushPermission, supported: pushSupported, requestPermission } = usePushPermission();
 
   function showMsg(text, type = 'success') {
     setMsg({ text, type });
@@ -56,18 +59,6 @@ export default function TeacherSettings() {
     } finally {
       setImporting(false);
       e.target.value = '';
-    }
-  }
-
-  async function handleEnablePush() {
-    setPushStatus('loading');
-    try {
-      await subscribeToPush(supabase, user.id);
-      setPushStatus('enabled');
-      showMsg('Push notifications enabled!');
-    } catch (e) {
-      setPushStatus('error');
-      showMsg('Could not enable notifications', 'error');
     }
   }
 
@@ -161,29 +152,60 @@ export default function TeacherSettings() {
           </div>
         </div>
 
-        {/* Notifications */}
-        <div className="section-header"><span className="section-title">Notifications</span></div>
+        {/* Install App */}
+        <div className="section-header"><span className="section-title">App</span></div>
         <div className="card-list" style={{ marginBottom: 'var(--space-lg)' }}>
           <div className="card-item" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}>
             <div style={{ width: 40, height: 40, borderRadius: 'var(--radius-full)', background: 'var(--primary-fixed)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <span className="material-symbols-outlined" style={{ color: 'var(--primary)' }}>notifications</span>
+              <span className="material-symbols-outlined" style={{ color: 'var(--primary)' }}>install_mobile</span>
             </div>
             <div style={{ flex: 1 }}>
-              <div className="title-sm">Push Notifications</div>
-              <div className="label-sm text-surface-variant">Overdue fee alerts & reminders</div>
+              <div className="title-sm">Install App</div>
+              <div className="label-sm text-surface-variant">
+                {isInstalled ? 'Already installed on this device' : 'Add to home screen for quick access'}
+              </div>
             </div>
-            <button
-              className={`btn btn-sm ${pushStatus === 'enabled' ? 'btn-secondary' : 'btn-primary'}`}
-              onClick={handleEnablePush}
-              disabled={pushStatus === 'loading' || pushStatus === 'enabled'}
-            >
-              {pushStatus === 'loading' ? <div className="spinner spinner--sm" /> :
-               pushStatus === 'enabled' ? 'Enabled ✓' : 'Enable'}
-            </button>
+            {isInstalled ? (
+              <span className="chip chip-paid">Installed</span>
+            ) : canInstall ? (
+              <button className="btn btn-primary btn-sm" onClick={install}>
+                Install
+              </button>
+            ) : (
+              <span className="label-sm text-surface-variant" style={{ textAlign: 'right', maxWidth: 100 }}>
+                Use browser menu → Add to Home Screen
+              </span>
+            )}
           </div>
+
+          {/* Push Notifications */}
+          {pushSupported && (
+            <div className="card-item" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}>
+              <div style={{ width: 40, height: 40, borderRadius: 'var(--radius-full)', background: 'var(--primary-fixed)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <span className="material-symbols-outlined" style={{ color: 'var(--primary)' }}>notifications</span>
+              </div>
+              <div style={{ flex: 1 }}>
+                <div className="title-sm">Push Notifications</div>
+                <div className="label-sm text-surface-variant">Overdue fee alerts & reminders</div>
+              </div>
+              {pushPermission === 'granted' ? (
+                <span className="chip chip-paid">Enabled</span>
+              ) : pushPermission === 'denied' ? (
+                <span className="label-sm text-surface-variant">Blocked in browser</span>
+              ) : (
+                <button className="btn btn-primary btn-sm" onClick={async () => {
+                  setPushStatus('loading');
+                  await requestPermission();
+                  setPushStatus('idle');
+                }} disabled={pushStatus === 'loading'}>
+                  {pushStatus === 'loading' ? <div className="spinner spinner--sm" /> : 'Enable'}
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* Danger Zone */}
+        {/* Account */}
         <div className="section-header"><span className="section-title">Account</span></div>
         <div className="card-list">
           <div className="card-item" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}>

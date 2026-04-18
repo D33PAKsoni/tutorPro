@@ -4,18 +4,12 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import { registerSW } from 'virtual:pwa-register';
 
-// VitePWA's virtual module — registers the Workbox-generated SW
-// and handles auto-updates. This is what makes Chrome fire beforeinstallprompt.
+// Register the Workbox-generated SW via VitePWA virtual module.
+// This is required for Chrome to fire beforeinstallprompt.
 registerSW({
-  onNeedRefresh() {
-    // New content available — we silently update (autoUpdate mode)
-  },
-  onOfflineReady() {
-    console.log('[SW] App ready to work offline');
-  },
-  onRegisterError(error) {
-    console.error('[SW] Registration failed:', error);
-  },
+  onNeedRefresh() { /* auto-update, no UI needed */ },
+  onOfflineReady() { console.log('[SW] Offline ready'); },
+  onRegisterError(e) { console.error('[SW] Registration error:', e); },
 });
 
 ReactDOM.createRoot(document.getElementById('root')).render(

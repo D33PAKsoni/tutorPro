@@ -6,19 +6,22 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      // generateSW: Workbox generates the SW automatically.
-      // Our custom push-notification logic is in public/sw.js which the
-      // browser registers separately via main.jsx.
-      // VitePWA handles the precache manifest and install prompt criteria.
       strategies: 'generateSW',
       registerType: 'autoUpdate',
+      // SW filename — must NOT conflict with any file in public/
+      // VitePWA outputs this to dist/sw.js
+      filename: 'sw.js',
       workbox: {
         globPatterns: ['**/*.{js,css,html,png,svg,ico,woff2}'],
-        // Don't cache Supabase API calls
         navigateFallback: 'index.html',
         navigateFallbackDenylist: [/^\/rest\//, /^\/auth\//, /^\/functions\//],
+        // Import our push notification handler into the generated SW
+        importScripts: ['/push-handler.js'],
+        // SW must claim clients immediately for installability
+        clientsClaim: true,
+        skipWaiting: true,
       },
-      includeAssets: ['icons/*.png', 'icons/*.svg'],
+      includeAssets: ['icons/*.png', 'push-handler.js'],
       manifest: {
         name: 'Tuition Pro',
         short_name: 'TuitionPro',
@@ -30,23 +33,9 @@ export default defineConfig({
         start_url: '/',
         scope: '/',
         icons: [
-          {
-            src: '/icons/icon-192.png',
-            sizes: '192x192',
-            type: 'image/png',
-          },
-          {
-            src: '/icons/icon-512.png',
-            sizes: '512x512',
-            type: 'image/png',
-            purpose: 'any',
-          },
-          {
-            src: '/icons/icon-512.png',
-            sizes: '512x512',
-            type: 'image/png',
-            purpose: 'maskable',
-          },
+          { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
+          { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+          { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
         shortcuts: [
           {
@@ -62,6 +51,11 @@ export default defineConfig({
             icons: [{ src: '/icons/icon-192.png', sizes: '192x192' }],
           },
         ],
+      },
+      // Dev mode: also enable SW in development so you can test installability locally
+      devOptions: {
+        enabled: true,
+        type: 'module',
       },
     }),
   ],
