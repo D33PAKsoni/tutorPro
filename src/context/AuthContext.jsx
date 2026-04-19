@@ -5,6 +5,32 @@ import { supabase, toInternalEmail } from '../supabase';
 
 const AuthContext = createContext(null);
 
+// ── Profile cache (localStorage) ────────────────────────────────────────────
+// Persisting the profile means that on a revisit the app loads it
+// instantly from cache, avoiding the "Could not load your profile" screen
+// that appears when the Supabase fetch times out on slow connections.
+const PROFILE_CACHE_KEY = 'tuition_pro_profile_cache';
+
+function getCachedProfile(userId) {
+  try {
+    const raw = localStorage.getItem(PROFILE_CACHE_KEY);
+    if (!raw) return null;
+    const cached = JSON.parse(raw);
+    // Only use cache if it belongs to the current user
+    if (cached?.id === userId) return cached;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function setCachedProfile(profile) {
+  try {
+    if (profile) localStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(profile));
+    else localStorage.removeItem(PROFILE_CACHE_KEY);
+  } catch { /* quota exceeded or private mode — silently ignore */ }
+}
+
 async function fetchProfileForUser(userId) {
   const query = supabase
     .from('profiles')
@@ -12,8 +38,9 @@ async function fetchProfileForUser(userId) {
     .eq('id', userId)
     .maybeSingle();
 
+  // Increase timeout — 4s was too tight on mobile/slow connections
   const timeout = new Promise((_, reject) =>
-    setTimeout(() => reject(new Error('profile_timeout')), 4000)
+    setTimeout(() => reject(new Error('profile_timeout')), 8000)
   );
 
   try {
@@ -44,13 +71,19 @@ export function AuthProvider({ children }) {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Helper: set profile in state + keep cache in sync
+  function applyProfile(p) {
+    setProfile(p);
+    setCachedProfile(p);
+  }
+
   useEffect(() => {
     let mounted = true;
 
     async function init() {
       const sessionPromise = supabase.auth.getSession();
       const sessionTimeout = new Promise(resolve =>
-        setTimeout(() => resolve({ data: { session: null }, timedOut: true }), 6000)
+        setTimeout(() => resolve({ data: { session: null }, timedOut: true }), 8000)
       );
 
       const result = await Promise.race([sessionPromise, sessionTimeout]);
@@ -67,15 +100,29 @@ export function AuthProvider({ children }) {
       setSession(s);
 
       if (s?.user) {
-        const p = await fetchProfileForUser(s.user.id);
-        // ── KEY FIX ──────────────────────────────────────────────────────
-        // If profile is null here it does NOT mean the trigger is missing.
-        // It can mean the profile fetch timed out or had a transient network
-        // error. We must NOT redirect to login with the scary "profile_missing"
-        // warning in this case — the session IS valid. We set profile to null
-        // and let the app proceed; RequireAuth will show the page if session
-        // is valid, and the profile will be re-fetched on next interaction.
-        if (mounted) setProfile(p);
+        // ── KEY FIX: load from cache immediately so the UI never flashes
+        // the "Could not load your profile" screen on revisit.
+        const cached = getCachedProfile(s.user.id);
+        if (cached && mounted) {
+          setProfile(cached);
+          setLoading(false); // unblock UI right away with cached data
+        }
+
+        // Always re-fetch in background to keep profile fresh
+        fetchProfileForUser(s.user.id).then(fresh => {
+          if (!mounted) return;
+          if (fresh) applyProfile(fresh);
+          // If fetch fails but we already have cached data, keep it —
+          // don't show the retry screen just because of a transient error.
+          else if (!cached) setProfile(null);
+          setLoading(false);
+        });
+
+        // If no cache, leave loading=true until fetch completes (set above)
+        if (cached) return; // loading already set to false
+      } else {
+        // No session — clear stale cache
+        setCachedProfile(null);
       }
 
       if (mounted) setLoading(false);
@@ -91,9 +138,17 @@ export function AuthProvider({ children }) {
         setSession(newSession ?? null);
 
         if (newSession?.user) {
+          // Show cached profile immediately while fresh data loads
+          const cached = getCachedProfile(newSession.user.id);
+          if (cached && mounted) setProfile(cached);
+
           const p = await fetchProfileForUser(newSession.user.id);
-          if (mounted) setProfile(p);
+          if (mounted) {
+            if (p) applyProfile(p);
+            else if (!cached) setProfile(null);
+          }
         } else {
+          setCachedProfile(null);
           setProfile(null);
         }
 
@@ -122,6 +177,7 @@ export function AuthProvider({ children }) {
 
   const signOut = async () => {
     await supabase.auth.signOut();
+    setCachedProfile(null);
     setProfile(null);
     setSession(null);
   };
@@ -129,7 +185,8 @@ export function AuthProvider({ children }) {
   const refreshProfile = async () => {
     if (!session?.user) return;
     const p = await fetchProfileForUser(session.user.id);
-    setProfile(p);
+    if (p) applyProfile(p);
+    else setProfile(p); // null — don't cache
   };
 
   return (
