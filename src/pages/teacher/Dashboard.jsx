@@ -287,6 +287,24 @@ function QuickNoticeModal({ teacherId, onClose }) {
       content: content.trim(),
       recipient_type: 'all',
     });
+
+    // Send push to all active students (fire-and-forget)
+    try {
+      const { data: students } = await supabase
+        .from('students')
+        .select('auth_user_id')
+        .eq('teacher_id', teacherId)
+        .eq('is_paused', false)
+        .not('auth_user_id', 'is', null);
+
+      for (const s of students || []) {
+        if (!s.auth_user_id) continue;
+        supabase.functions.invoke('send-push', {
+          body: { user_id: s.auth_user_id, title: title.trim(), body: content.trim().slice(0, 100), url: '/student/notices' },
+        }).catch(() => {});
+      }
+    } catch { /* never block the modal close */ }
+
     setSending(false);
     onClose();
   }

@@ -5,78 +5,87 @@ import { supabase, toInternalEmail } from '../supabase';
 
 const AuthContext = createContext(null);
 
+// Profile fetch with timeout on BOTH the initial query AND the retry
 async function fetchProfileForUser(userId) {
-  const query = supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', userId)
-    .maybeSingle();
+  async function attempt() {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .maybeSingle();
+    if (error) throw error;
+    return data;
+  }
 
-  const timeout = new Promise((_, reject) =>
-    setTimeout(() => reject(new Error('profile_timeout')), 4000)
-  );
+  function withTimeout(promise, ms) {
+    return Promise.race([
+      promise,
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('timeout')), ms)
+      ),
+    ]);
+  }
 
   try {
-    const { data, error } = await Promise.race([query, timeout]);
-    if (error) {
-      console.error('[AuthContext] fetchProfile:', error.message);
-      return null;
-    }
-    // Row missing — retry once after 1s (trigger propagation delay)
+    const data = await withTimeout(attempt(), 5000);
+    // Row genuinely missing — retry once (new user trigger delay)
     if (!data) {
       await new Promise(r => setTimeout(r, 1000));
-      const { data: retry } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle();
-      return retry ?? null;
+      return await withTimeout(attempt(), 5000);
     }
     return data;
   } catch (e) {
-    console.error('[AuthContext] fetchProfile failed/timed out:', e.message);
-    return null;
+    console.error('[AuthContext] fetchProfile:', e.message);
+    // Return undefined (not null) to signal "fetch failed" vs "no row"
+    return undefined;
   }
 }
 
 export function AuthProvider({ children }) {
-  const [session, setSession] = useState(null);
-  const [profile, setProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [session,  setSession]  = useState(null);
+  const [profile,  setProfile]  = useState(null);
+  // profileError: true = fetch failed (show retry), false = no error
+  const [profileError, setProfileError] = useState(false);
+  const [loading,  setLoading]  = useState(true);
+
+  async function loadProfile(userId) {
+    setProfileError(false);
+    const result = await fetchProfileForUser(userId);
+    if (result === undefined) {
+      // Network/timeout failure — show retry screen
+      setProfile(null);
+      setProfileError(true);
+    } else {
+      setProfile(result); // null = no row, object = profile found
+      setProfileError(false);
+    }
+  }
 
   useEffect(() => {
     let mounted = true;
 
     async function init() {
-      const sessionPromise = supabase.auth.getSession();
-      const sessionTimeout = new Promise(resolve =>
-        setTimeout(() => resolve({ data: { session: null }, timedOut: true }), 6000)
-      );
+      // getSession reads from localStorage instantly.
+      // Wrap in timeout in case token refresh hangs.
+      const sessionResult = await Promise.race([
+        supabase.auth.getSession(),
+        new Promise(resolve =>
+          setTimeout(() => resolve({ data: { session: null }, timedOut: true }), 6000)
+        ),
+      ]);
 
-      const result = await Promise.race([sessionPromise, sessionTimeout]);
       if (!mounted) return;
 
-      if (result.timedOut) {
-        console.warn('[AuthContext] getSession timed out');
+      if (sessionResult.timedOut) {
         setSession(null);
         setLoading(false);
         return;
       }
 
-      const s = result.data?.session ?? null;
+      const s = sessionResult.data?.session ?? null;
       setSession(s);
 
-      if (s?.user) {
-        const p = await fetchProfileForUser(s.user.id);
-        // ── KEY FIX ──────────────────────────────────────────────────────
-        // If profile is null here it does NOT mean the trigger is missing.
-        // It can mean the profile fetch timed out or had a transient network
-        // error. We must NOT redirect to login with the scary "profile_missing"
-        // warning in this case — the session IS valid. We set profile to null
-        // and let the app proceed; RequireAuth will show the page if session
-        // is valid, and the profile will be re-fetched on next interaction.
-        if (mounted) setProfile(p);
-      }
+      if (s?.user) await loadProfile(s.user.id);
 
       if (mounted) setLoading(false);
     }
@@ -91,59 +100,45 @@ export function AuthProvider({ children }) {
         setSession(newSession ?? null);
 
         if (newSession?.user) {
-          const p = await fetchProfileForUser(newSession.user.id);
-          if (mounted) setProfile(p);
+          await loadProfile(newSession.user.id);
         } else {
           setProfile(null);
+          setProfileError(false);
         }
 
         if (mounted) setLoading(false);
       }
     );
 
-    return () => {
-      mounted = false;
-      subscription.unsubscribe();
-    };
-  }, []);
-
-  const registerTeacher = async ({ email, password, fullName }) => {
-    return supabase.auth.signUp({
-      email, password,
-      options: { data: { role: 'teacher', full_name: fullName } },
-    });
-  };
-
-  const loginTeacher = ({ email, password }) =>
-    supabase.auth.signInWithPassword({ email, password });
-
-  const loginStudent = ({ username, password }) =>
-    supabase.auth.signInWithPassword({ email: toInternalEmail(username), password });
-
-  const signOut = async () => {
-    await supabase.auth.signOut();
-    setProfile(null);
-    setSession(null);
-  };
+    return () => { mounted = false; subscription.unsubscribe(); };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const refreshProfile = async () => {
     if (!session?.user) return;
-    const p = await fetchProfileForUser(session.user.id);
-    setProfile(p);
+    await loadProfile(session.user.id);
   };
 
   return (
     <AuthContext.Provider value={{
       session,
-      user: session?.user ?? null,
+      user:        session?.user ?? null,
       profile,
-      isTeacher: profile?.role === 'teacher',
-      isStudent: profile?.role === 'student',
+      profileError,
+      isTeacher:   profile?.role === 'teacher',
+      isStudent:   profile?.role === 'student',
       loading,
-      registerTeacher,
-      loginTeacher,
-      loginStudent,
-      signOut,
+      registerTeacher: ({ email, password, fullName }) =>
+        supabase.auth.signUp({ email, password, options: { data: { role: 'teacher', full_name: fullName } } }),
+      loginTeacher: ({ email, password }) =>
+        supabase.auth.signInWithPassword({ email, password }),
+      loginStudent: ({ username, password }) =>
+        supabase.auth.signInWithPassword({ email: toInternalEmail(username), password }),
+      signOut: async () => {
+        await supabase.auth.signOut();
+        setProfile(null);
+        setSession(null);
+        setProfileError(false);
+      },
       refreshProfile,
     }}>
       {children}
