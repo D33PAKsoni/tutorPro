@@ -133,42 +133,6 @@ function NoticeModal({ teacherId, students, onClose, onSaved }) {
     if (!form.title.trim() || !form.content.trim()) return;
     setSaving(true);
     await supabase.from('notices').insert({ ...form, teacher_id: teacherId });
-
-    // ── Send push notifications to affected students ──────────────────
-    try {
-      // Determine which student auth_user_ids to notify
-      let targetStudents = [];
-      if (form.recipient_type === 'all') {
-        const { data } = await supabase
-          .from('students')
-          .select('auth_user_id')
-          .eq('teacher_id', teacherId)
-          .eq('is_paused', false)
-          .not('auth_user_id', 'is', null);
-        targetStudents = data || [];
-      } else if (form.recipient_type === 'individual' && form.recipient_student_ids.length > 0) {
-        const { data } = await supabase
-          .from('students')
-          .select('auth_user_id')
-          .in('id', form.recipient_student_ids)
-          .not('auth_user_id', 'is', null);
-        targetStudents = data || [];
-      }
-
-      // Fire push to each student (best-effort, don't block save)
-      for (const s of targetStudents) {
-        if (!s.auth_user_id) continue;
-        supabase.functions.invoke('send-push', {
-          body: {
-            user_id: s.auth_user_id,
-            title: form.title,
-            body: form.content.slice(0, 100),
-            url: '/student/notices',
-          },
-        }).catch(() => {}); // fire-and-forget
-      }
-    } catch { /* push failure must never block the notice save */ }
-
     setSaving(false);
     onSaved();
   }
