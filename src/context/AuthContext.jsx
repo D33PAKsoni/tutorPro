@@ -5,124 +5,94 @@ import { supabase, toInternalEmail } from '../supabase';
 
 const AuthContext = createContext(null);
 
-// ── Profile cache (localStorage) ────────────────────────────────────────────
-// Persisting the profile means that on a revisit the app loads it
-// instantly from cache, avoiding the "Could not load your profile" screen
-// that appears when the Supabase fetch times out on slow connections.
-const PROFILE_CACHE_KEY = 'tuition_pro_profile_cache';
+// ── Profile cache ────────────────────────────────────────────────────────────
+// Cache the profile in localStorage so that on revisit the UI loads
+// instantly from cache while a background refresh keeps it up to date.
+const CACHE_KEY = 'tuition-pro-profile';
 
-function getCachedProfile(userId) {
+function readCache(userId) {
   try {
-    const raw = localStorage.getItem(PROFILE_CACHE_KEY);
+    const raw = localStorage.getItem(CACHE_KEY);
     if (!raw) return null;
-    const cached = JSON.parse(raw);
-    // Only use cache if it belongs to the current user
-    if (cached?.id === userId) return cached;
-    return null;
-  } catch {
-    return null;
-  }
+    const obj = JSON.parse(raw);
+    return obj?.id === userId ? obj : null;
+  } catch { return null; }
 }
 
-function setCachedProfile(profile) {
+function writeCache(profile) {
   try {
-    if (profile) localStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(profile));
-    else localStorage.removeItem(PROFILE_CACHE_KEY);
-  } catch { /* quota exceeded or private mode — silently ignore */ }
+    if (profile) localStorage.setItem(CACHE_KEY, JSON.stringify(profile));
+    else localStorage.removeItem(CACHE_KEY);
+  } catch { /* quota / private mode — ignore */ }
 }
 
-async function fetchProfileForUser(userId) {
-  const query = supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', userId)
-    .maybeSingle();
-
-  // Increase timeout — 4s was too tight on mobile/slow connections
-  const timeout = new Promise((_, reject) =>
-    setTimeout(() => reject(new Error('profile_timeout')), 8000)
-  );
-
+async function fetchProfile(userId) {
   try {
-    const { data, error } = await Promise.race([query, timeout]);
-    if (error) {
-      console.error('[AuthContext] fetchProfile:', error.message);
-      return null;
-    }
-    // Row missing — retry once after 1s (trigger propagation delay)
+    const { data, error } = await Promise.race([
+      supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 8000)),
+    ]);
+    if (error) throw error;
+    // Retry once — profile row may not exist yet due to trigger propagation
     if (!data) {
-      await new Promise(r => setTimeout(r, 1000));
+      await new Promise(r => setTimeout(r, 1200));
       const { data: retry } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle();
+        .from('profiles').select('*').eq('id', userId).maybeSingle();
       return retry ?? null;
     }
     return data;
   } catch (e) {
-    console.error('[AuthContext] fetchProfile failed/timed out:', e.message);
+    console.warn('[AuthContext] fetchProfile:', e.message);
     return null;
   }
 }
 
 export function AuthProvider({ children }) {
-  const [session, setSession] = useState(null);
-  const [profile, setProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [session, setSession]   = useState(null);
+  const [profile, setProfile]   = useState(null);
+  const [loading, setLoading]   = useState(true);
 
-  // Helper: set profile in state + keep cache in sync
   function applyProfile(p) {
     setProfile(p);
-    setCachedProfile(p);
+    writeCache(p);
   }
 
   useEffect(() => {
     let mounted = true;
 
     async function init() {
-      const sessionPromise = supabase.auth.getSession();
-      const sessionTimeout = new Promise(resolve =>
-        setTimeout(() => resolve({ data: { session: null }, timedOut: true }), 8000)
-      );
-
-      const result = await Promise.race([sessionPromise, sessionTimeout]);
+      // supabase-js with implicit flow reads the token from localStorage
+      // synchronously — getSession() is near-instant on revisit.
+      const { data: { session: s } } = await supabase.auth.getSession();
       if (!mounted) return;
 
-      if (result.timedOut) {
-        console.warn('[AuthContext] getSession timed out');
-        setSession(null);
-        setLoading(false);
-        return;
-      }
-
-      const s = result.data?.session ?? null;
-      setSession(s);
+      setSession(s ?? null);
 
       if (s?.user) {
-        // ── KEY FIX: load from cache immediately so the UI never flashes
-        // the "Could not load your profile" screen on revisit.
-        const cached = getCachedProfile(s.user.id);
-        if (cached && mounted) {
+        // 1. Load cached profile immediately — zero flicker on revisit
+        const cached = readCache(s.user.id);
+        if (cached) {
           setProfile(cached);
-          setLoading(false); // unblock UI right away with cached data
+          setLoading(false); // unblock the UI right away
         }
 
-        // Always re-fetch in background to keep profile fresh
-        fetchProfileForUser(s.user.id).then(fresh => {
+        // 2. Always refresh from DB in background
+        fetchProfile(s.user.id).then(fresh => {
           if (!mounted) return;
-          if (fresh) applyProfile(fresh);
-          // If fetch fails but we already have cached data, keep it —
-          // don't show the retry screen just because of a transient error.
-          else if (!cached) setProfile(null);
+          if (fresh) {
+            applyProfile(fresh);
+          } else if (!cached) {
+            // Fresh fetch failed AND no cache → show retry screen
+            setProfile(null);
+          }
+          // If fresh is null but we have a cache, keep the cache — don't
+          // blank the screen due to a transient network error.
           setLoading(false);
         });
 
-        // If no cache, leave loading=true until fetch completes (set above)
-        if (cached) return; // loading already set to false
+        if (cached) return; // loading already set false above
       } else {
-        // No session — clear stale cache
-        setCachedProfile(null);
+        writeCache(null); // clear stale cache on sign-out / no session
       }
 
       if (mounted) setLoading(false);
@@ -138,17 +108,18 @@ export function AuthProvider({ children }) {
         setSession(newSession ?? null);
 
         if (newSession?.user) {
-          // Show cached profile immediately while fresh data loads
-          const cached = getCachedProfile(newSession.user.id);
-          if (cached && mounted) setProfile(cached);
+          const cached = readCache(newSession.user.id);
+          if (cached) setProfile(cached);
 
-          const p = await fetchProfileForUser(newSession.user.id);
-          if (mounted) {
-            if (p) applyProfile(p);
+          fetchProfile(newSession.user.id).then(fresh => {
+            if (!mounted) return;
+            if (fresh) applyProfile(fresh);
             else if (!cached) setProfile(null);
-          }
+            setLoading(false);
+          });
+          if (cached) return;
         } else {
-          setCachedProfile(null);
+          writeCache(null);
           setProfile(null);
         }
 
@@ -162,12 +133,11 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
-  const registerTeacher = async ({ email, password, fullName }) => {
-    return supabase.auth.signUp({
+  const registerTeacher = ({ email, password, fullName }) =>
+    supabase.auth.signUp({
       email, password,
       options: { data: { role: 'teacher', full_name: fullName } },
     });
-  };
 
   const loginTeacher = ({ email, password }) =>
     supabase.auth.signInWithPassword({ email, password });
@@ -177,16 +147,16 @@ export function AuthProvider({ children }) {
 
   const signOut = async () => {
     await supabase.auth.signOut();
-    setCachedProfile(null);
+    writeCache(null);
     setProfile(null);
     setSession(null);
   };
 
   const refreshProfile = async () => {
     if (!session?.user) return;
-    const p = await fetchProfileForUser(session.user.id);
+    const p = await fetchProfile(session.user.id);
     if (p) applyProfile(p);
-    else setProfile(p); // null — don't cache
+    else setProfile(p);
   };
 
   return (
@@ -195,7 +165,7 @@ export function AuthProvider({ children }) {
       user: session?.user ?? null,
       profile,
       isTeacher: profile?.role === 'teacher',
-      isStudent: profile?.role === 'student',
+      isStudent:  profile?.role === 'student',
       loading,
       registerTeacher,
       loginTeacher,

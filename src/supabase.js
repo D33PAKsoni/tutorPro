@@ -14,13 +14,17 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    persistSession:    true,
-    autoRefreshToken:  true,
+    persistSession:     true,
+    autoRefreshToken:   true,
     detectSessionInUrl: true,
-    storageKey:        'tuition-pro-auth',
-    // PKCE is the secure default for SPAs in supabase-js v2.
-    // Implicit flow can cause issues with token detection on some hosts.
-    flowType: 'pkce',
+    storageKey:         'tuition-pro-auth',
+    // ── IMPORTANT: Use 'implicit' flow, NOT 'pkce' ──────────────────────
+    // PKCE stores the code_verifier in sessionStorage, which is wiped when
+    // the browser tab is closed. On the next visit the code exchange fails
+    // and the user is silently logged out even though their token is still
+    // in localStorage. Implicit flow stores everything in localStorage and
+    // correctly restores the session across tab closes / app restarts.
+    flowType: 'implicit',
   },
 });
 

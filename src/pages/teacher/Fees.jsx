@@ -205,18 +205,13 @@ export default function TeacherFees() {
       <BottomNav role="teacher" />
 
       {editFee && (
-        <FeeDetailModal
-          fee={editFee}
-          onClose={() => setEditFee(null)}
-          onSaved={() => { setEditFee(null); loadFees(); }}
-          onDeleted={() => { setEditFee(null); loadFees(); }}
-        />
+        <FeeDetailModal fee={editFee} onClose={() => setEditFee(null)} onSaved={() => { setEditFee(null); loadFees(); }} />
       )}
     </div>
   );
 }
 
-function FeeDetailModal({ fee, onClose, onSaved, onDeleted }) {
+function FeeDetailModal({ fee, onClose, onSaved }) {
   const [form, setForm] = useState({
     amount: fee.amount,
     due_date: fee.due_date,
@@ -225,8 +220,6 @@ function FeeDetailModal({ fee, onClose, onSaved, onDeleted }) {
     remark: fee.remark || '',
   });
   const [saving, setSaving] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const [deleting, setDeleting] = useState(false);
 
   async function handleSave() {
     setSaving(true);
@@ -240,13 +233,6 @@ function FeeDetailModal({ fee, onClose, onSaved, onDeleted }) {
     }).eq('id', fee.id);
     setSaving(false);
     onSaved();
-  }
-
-  async function handleDelete() {
-    setDeleting(true);
-    await supabase.from('fees').delete().eq('id', fee.id);
-    setDeleting(false);
-    onDeleted?.();
   }
 
   // Update advance balance separately
@@ -317,42 +303,6 @@ function FeeDetailModal({ fee, onClose, onSaved, onDeleted }) {
             {saving ? <div className="spinner spinner--sm" /> : 'Save Changes'}
           </button>
         </div>
-
-        {/* Delete section */}
-        {!confirmDelete ? (
-          <button
-            className="btn btn-tertiary"
-            style={{ width: '100%', color: 'var(--error, #b00020)', marginTop: 'var(--space-xs)' }}
-            onClick={() => setConfirmDelete(true)}
-          >
-            <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>delete</span>
-            Delete this fee record
-          </button>
-        ) : (
-          <div style={{
-            border: '1px solid var(--error, #b00020)',
-            borderRadius: 'var(--radius-md)',
-            padding: 'var(--space-md)',
-            marginTop: 'var(--space-xs)',
-          }}>
-            <div className="body-sm" style={{ color: 'var(--error, #b00020)', marginBottom: 'var(--space-sm)', fontWeight: 600 }}>
-              Delete this fee record for {fee.students?.full_name}? This cannot be undone.
-            </div>
-            <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
-              <button className="btn btn-tertiary" style={{ flex: 1 }} onClick={() => setConfirmDelete(false)}>
-                Cancel
-              </button>
-              <button
-                className="btn btn-primary"
-                style={{ flex: 1, background: 'var(--error, #b00020)', borderColor: 'var(--error, #b00020)' }}
-                onClick={handleDelete}
-                disabled={deleting}
-              >
-                {deleting ? <div className="spinner spinner--sm" /> : 'Yes, Delete'}
-              </button>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
