@@ -11,18 +11,18 @@
   "lang": "en",
   "icons": [
     {
-      "src": "/icons/icon-192.png",
+      "src": "/icons/a192.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "/icons/icon-512.png",
+      "src": "/icons/a512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icons/icon-512.png",
+      "src": "/icons/a512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
@@ -33,13 +33,13 @@
       "name": "Mark Attendance",
       "short_name": "Attendance",
       "url": "/teacher/attendance",
-      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+      "icons": [{ "src": "/icons/Attendance.png", "sizes": "192x192" }]
     },
     {
       "name": "View Fees",
       "short_name": "Fees",
       "url": "/teacher/fees",
-      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+      "icons": [{ "src": "/icons/fees.png", "sizes": "192x192" }]
     }
   ]
 }
