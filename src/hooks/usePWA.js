@@ -1,14 +1,11 @@
 // src/hooks/usePWA.js
 
 import { useState, useEffect, useCallback } from 'react';
-import { subscribeToPush } from '../lib/push';
+import { subscribeToPush, unsubscribeFromPush } from '../lib/push';
 import { supabase } from '../supabase';
 import { useAuth } from '../context/AuthContext';
 
-// ── Global prompt capture ────────────────────────────────────────────────────
-// beforeinstallprompt can fire BEFORE React mounts. We capture it at module
-// load time (runs immediately when the JS bundle is parsed) so no hook ever
-// misses it, no matter how late it mounts.
+// ── Global beforeinstallprompt capture ───────────────────────────────────────
 let _deferredPrompt = null;
 let _promptListeners = [];
 
@@ -22,7 +19,6 @@ if (typeof window !== 'undefined') {
     _deferredPrompt = e;
     notifyListeners();
   });
-
   window.addEventListener('appinstalled', () => {
     _deferredPrompt = null;
     notifyListeners();
@@ -38,21 +34,13 @@ export function usePWAInstall() {
   );
 
   useEffect(() => {
-    // Subscribe to future prompt changes (user dismisses, installs, etc.)
     const listener = (prompt) => {
       setInstallPrompt(prompt);
       if (!prompt) setIsInstalled(true);
     };
     _promptListeners.push(listener);
-
-    // In case the event already fired before this effect ran, sync state
-    if (_deferredPrompt && !installPrompt) {
-      setInstallPrompt(_deferredPrompt);
-    }
-
-    return () => {
-      _promptListeners = _promptListeners.filter(fn => fn !== listener);
-    };
+    if (_deferredPrompt && !installPrompt) setInstallPrompt(_deferredPrompt);
+    return () => { _promptListeners = _promptListeners.filter(fn => fn !== listener); };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const install = useCallback(async () => {
@@ -67,11 +55,7 @@ export function usePWAInstall() {
     }
   }, [installPrompt]);
 
-  return {
-    canInstall: !!installPrompt && !isInstalled,
-    isInstalled,
-    install,
-  };
+  return { canInstall: !!installPrompt && !isInstalled, isInstalled, install };
 }
 
 // ── usePushPermission ─────────────────────────────────────────────────────────
@@ -81,28 +65,45 @@ export function usePushPermission() {
     typeof Notification !== 'undefined' ? Notification.permission : 'unsupported'
   );
   const [subscribing, setSubscribing] = useState(false);
+  const [error, setError]             = useState(null);
+
+  // Check VAPID key at runtime so we can show a clear error if missing
+  const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
 
   const supported =
     typeof Notification !== 'undefined' &&
     'serviceWorker' in navigator &&
-    'PushManager' in window &&
-    !!import.meta.env.VITE_VAPID_PUBLIC_KEY;
+    'PushManager' in window;
+  // Note: we don't gate `supported` on vapidKey — we want the Enable button
+  // to appear and show a clear error message rather than hiding silently.
 
   const requestPermission = useCallback(async () => {
-    if (!supported || !user) return;
+    setError(null);
     setSubscribing(true);
     try {
-      await subscribeToPush(supabase, user.id);
+      await subscribeToPush(supabase, user?.id);
       setPermission('granted');
     } catch (e) {
-      setPermission(
-        typeof Notification !== 'undefined' ? Notification.permission : 'denied'
-      );
-      console.warn('[usePushPermission]', e.message);
+      const msg = e.message || 'Unknown error';
+      console.error('[usePushPermission]', msg);
+      setError(msg);
+      if (typeof Notification !== 'undefined') {
+        setPermission(Notification.permission);
+      }
     } finally {
       setSubscribing(false);
     }
-  }, [supported, user]);
+  }, [user]);
 
-  return { permission, supported, subscribing, requestPermission };
+  const requestUnsubscribe = useCallback(async () => {
+    setError(null);
+    try {
+      await unsubscribeFromPush(supabase, user?.id);
+      setPermission('default');
+    } catch (e) {
+      setError(e.message || 'Failed to unsubscribe');
+    }
+  }, [user]);
+
+  return { permission, supported, subscribing, error, vapidKey, requestPermission, requestUnsubscribe };
 }

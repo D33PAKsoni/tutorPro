@@ -12,11 +12,18 @@ export default function TeacherSettings() {
   const { user, profile, signOut } = useAuth();
   const [backing, setBacking] = useState(false);
   const [importing, setImporting] = useState(false);
-  const [pushStatus, setPushStatus] = useState('idle');
   const [msg, setMsg] = useState(null);
 
   const { canInstall, isInstalled, install } = usePWAInstall();
-  const { permission: pushPermission, supported: pushSupported, requestPermission } = usePushPermission();
+  const {
+    permission: pushPermission,
+    supported: pushSupported,
+    subscribing: pushSubscribing,
+    error: pushError,
+    vapidKey,
+    requestPermission,
+    requestUnsubscribe,
+  } = usePushPermission();
 
   function showMsg(text, type = 'success') {
     setMsg({ text, type });
@@ -180,26 +187,45 @@ export default function TeacherSettings() {
 
           {/* Push Notifications */}
           {pushSupported && (
-            <div className="card-item" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}>
-              <div style={{ width: 40, height: 40, borderRadius: 'var(--radius-full)', background: 'var(--primary-fixed)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <span className="material-symbols-outlined" style={{ color: 'var(--primary)' }}>notifications</span>
+            <div className="card-item" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}>
+                <div style={{ width: 40, height: 40, borderRadius: 'var(--radius-full)', background: 'var(--primary-fixed)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <span className="material-symbols-outlined" style={{ color: 'var(--primary)' }}>notifications</span>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div className="title-sm">Push Notifications</div>
+                  <div className="label-sm text-surface-variant">
+                    {!vapidKey ? 'Not configured — see error below' : 'Overdue fee alerts & reminders'}
+                  </div>
+                </div>
+                {pushPermission === 'granted' ? (
+                  <button className="btn btn-secondary btn-sm" onClick={requestUnsubscribe}>
+                    Disable
+                  </button>
+                ) : pushPermission === 'denied' ? (
+                  <span className="label-sm text-surface-variant" style={{ textAlign: 'right', maxWidth: 120 }}>
+                    Blocked — allow in browser settings
+                  </span>
+                ) : (
+                  <button className="btn btn-primary btn-sm" onClick={requestPermission} disabled={pushSubscribing}>
+                    {pushSubscribing ? <div className="spinner spinner--sm" /> : 'Enable'}
+                  </button>
+                )}
               </div>
-              <div style={{ flex: 1 }}>
-                <div className="title-sm">Push Notifications</div>
-                <div className="label-sm text-surface-variant">Overdue fee alerts & reminders</div>
-              </div>
-              {pushPermission === 'granted' ? (
-                <span className="chip chip-paid">Enabled</span>
-              ) : pushPermission === 'denied' ? (
-                <span className="label-sm text-surface-variant">Blocked in browser</span>
-              ) : (
-                <button className="btn btn-primary btn-sm" onClick={async () => {
-                  setPushStatus('loading');
-                  await requestPermission();
-                  setPushStatus('idle');
-                }} disabled={pushStatus === 'loading'}>
-                  {pushStatus === 'loading' ? <div className="spinner spinner--sm" /> : 'Enable'}
-                </button>
+              {pushPermission === 'granted' && (
+                <div style={{ fontSize: '0.8125rem', color: 'var(--secondary)', paddingLeft: 2 }}>
+                  ✓ Notifications active on this device
+                </div>
+              )}
+              {pushError && (
+                <div style={{
+                  background: 'var(--error-container)', color: 'var(--on-error-container)',
+                  borderRadius: 'var(--radius-md)', padding: '0.5rem 0.75rem',
+                  fontSize: '0.8125rem', display: 'flex', gap: '0.5rem', alignItems: 'flex-start',
+                }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: '1rem', flexShrink: 0, marginTop: 1 }}>error</span>
+                  <span>{pushError}</span>
+                </div>
               )}
             </div>
           )}
