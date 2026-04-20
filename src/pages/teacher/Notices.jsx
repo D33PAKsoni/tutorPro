@@ -132,7 +132,50 @@ function NoticeModal({ teacherId, students, onClose, onSaved }) {
   async function handleSave() {
     if (!form.title.trim() || !form.content.trim()) return;
     setSaving(true);
+
+    // 1. Insert the notice
     await supabase.from('notices').insert({ ...form, teacher_id: teacherId });
+
+    // 2. Send push notifications to the relevant students
+    try {
+      // Fetch students that should receive this notice, with their auth_user_id
+      let query = supabase
+        .from('students')
+        .select('auth_user_id')
+        .eq('teacher_id', teacherId)
+        .eq('is_paused', false)
+        .not('auth_user_id', 'is', null);
+
+      if (form.recipient_type === 'individual' && form.recipient_student_ids.length > 0) {
+        query = query.in('id', form.recipient_student_ids);
+      }
+      // 'group' notices — we still send to all active students since there's no
+      // group field on students; teacher uses group as a label in the notice only.
+      // 'all' — no extra filter needed.
+
+      const { data: targets } = await query;
+
+      // Deduplicate auth_user_ids (siblings share one auth account)
+      const userIds = [...new Set((targets || []).map(s => s.auth_user_id).filter(Boolean))];
+
+      // Fire-and-forget push to each user — don't block the UI on delivery
+      userIds.forEach(uid => {
+        supabase.functions.invoke('send-push', {
+          body: {
+            user_id: uid,
+            title: form.title,
+            body: form.content.slice(0, 120),
+            url: '/student/notices',
+          },
+        }).catch(err => console.warn('[Notices] push failed for', uid, err));
+      });
+
+      console.log(`[Notices] push dispatched to ${userIds.length} user(s)`);
+    } catch (err) {
+      // Push failure must never block the notice from being saved
+      console.warn('[Notices] push dispatch error:', err);
+    }
+
     setSaving(false);
     onSaved();
   }
