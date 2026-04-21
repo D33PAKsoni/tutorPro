@@ -6,6 +6,7 @@ const TEACHER_ITEMS = [
   { to: '/teacher/students',    icon: 'groups',         label: 'Students'   },
   { to: '/teacher/attendance',  icon: 'checklist',      label: 'Attendance' },
   { to: '/teacher/fees',        icon: 'payments',       label: 'Fees'       },
+  { to: '/teacher/assessments', icon: 'assignment',     label: 'Tests'      },
   { to: '/teacher/notices',     icon: 'campaign',       label: 'Notices'    },
 ];
 

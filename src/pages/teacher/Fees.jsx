@@ -220,6 +220,15 @@ function FeeDetailModal({ fee, onClose, onSaved }) {
     remark: fee.remark || '',
   });
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  async function handleDelete() {
+    setDeleting(true);
+    await supabase.from('fees').delete().eq('id', fee.id);
+    setDeleting(false);
+    onSaved();
+  }
 
   async function handleSave() {
     setSaving(true);
@@ -303,6 +312,51 @@ function FeeDetailModal({ fee, onClose, onSaved }) {
             {saving ? <div className="spinner spinner--sm" /> : 'Save Changes'}
           </button>
         </div>
+
+        {!confirmDelete ? (
+          <button
+            onClick={() => setConfirmDelete(true)}
+            style={{
+              width: '100%', padding: '0.6rem', marginTop: 'var(--space-xs)',
+              background: 'none', border: '1px solid var(--error)',
+              borderRadius: 'var(--radius-md)', color: 'var(--error)',
+              fontFamily: 'var(--font-body)', fontSize: '0.875rem', fontWeight: 600,
+              cursor: 'pointer', display: 'flex', alignItems: 'center',
+              justifyContent: 'center', gap: '0.4rem',
+            }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>delete</span>
+            Delete this fee record
+          </button>
+        ) : (
+          <div style={{
+            border: '1px solid var(--error)', borderRadius: 'var(--radius-md)',
+            padding: 'var(--space-md)', marginTop: 'var(--space-xs)',
+          }}>
+            <div style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--error)', marginBottom: 'var(--space-sm)' }}>
+              Delete fee for {fee.students?.full_name}? This cannot be undone.
+            </div>
+            <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
+              <button className="btn btn-tertiary" style={{ flex: 1 }} onClick={() => setConfirmDelete(false)}>
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                style={{
+                  flex: 1, padding: '0.6rem',
+                  background: 'var(--error)', border: 'none',
+                  borderRadius: 'var(--radius-md)', color: '#fff',
+                  fontFamily: 'var(--font-body)', fontSize: '0.875rem', fontWeight: 600,
+                  cursor: 'pointer', display: 'flex', alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                {deleting ? <div className="spinner spinner--sm" style={{ borderTopColor: '#fff' }} /> : 'Yes, Delete'}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
