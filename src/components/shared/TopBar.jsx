@@ -1,9 +1,10 @@
 // src/components/shared/TopBar.jsx
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { usePWAInstall } from '../../hooks/usePWA';
 
 export default function TopBar({ title, actions, backTo }) {
   const { canInstall, install } = usePWAInstall();
+  const navigate = useNavigate();
 
   return (
     <header className="top-bar">
@@ -15,7 +16,7 @@ export default function TopBar({ title, actions, backTo }) {
         ) : (
           <>
             <span className="material-symbols-outlined top-bar__brand-icon">school</span>
-            <span className="top-bar__brand-name">Tuition Pro</span>
+            <span className="top-bar__brand-name">Anand Classes</span>
           </>
         )}
         {title && backTo && (
@@ -30,6 +31,14 @@ export default function TopBar({ title, actions, backTo }) {
       </div>
 
       <div className="top-bar__actions">
+          <button
+            className="top-bar__action-btn"
+            onClick={() => Navigate("/teacher/settings")}
+            title="Go to settings"
+          >
+            ⚙️
+          </button>
+
         {/* Install button — shown when browser supports the install prompt */}
         {canInstall && (
           <button

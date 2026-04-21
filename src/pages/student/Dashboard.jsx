@@ -104,7 +104,7 @@ export default function StudentDashboard() {
               </div>
               <div className="hero-stat__label">Today's Status</div>
             </div>
-            <div>
+            {/* <div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 2 }}>
                 <span className="hero-stat__currency">₹</span>
                 <span className="hero-stat__number" style={{ fontSize: '2rem' }}>
@@ -112,7 +112,7 @@ export default function StudentDashboard() {
                 </span>
               </div>
               <div className="hero-stat__label">Advance Deposit</div>
-            </div>
+            </div> */}
           </div>
           <span className="material-symbols-outlined hero-card__bg-icon">school</span>
         </div>

@@ -79,7 +79,7 @@ export default function StudentAssessments() {
                       <div className="title-sm">{a.title || a.subject}</div>
                       <div className="label-sm text-surface-variant">{a.subject} · {format(new Date(a.assessment_date), 'dd MMM yyyy')}</div>
                       <div className="body-sm text-surface-variant" style={{ marginTop: 2 }}>
-                        <span style={{ color: 'var(--on-surface-variant)' }}>₹</span>
+                        <span style={{ color: 'var(--on-surface-variant)' }}></span>
                         <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, color: 'var(--primary)' }}> {a.score}</span>
                         <span className="text-surface-variant"> / {a.max_marks}</span>
                       </div>
