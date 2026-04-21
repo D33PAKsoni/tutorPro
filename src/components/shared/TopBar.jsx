@@ -33,7 +33,7 @@ export default function TopBar({ title, actions, backTo }) {
       <div className="top-bar__actions">
           <button
             className="top-bar__action-btn"
-            onClick={() => Navigate("/teacher/settings")}
+            onClick={() => navigate("/teacher/settings")}
             title="Go to settings"
           >
             ⚙️
