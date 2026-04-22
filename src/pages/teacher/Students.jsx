@@ -84,7 +84,7 @@ export default function TeacherStudents() {
 
         {/* Summary Row */}
         <div style={{ display: 'flex', gap: 'var(--space-sm)', marginBottom: 'var(--space-md)' }}>
-          <div className="card" style={{ flex: 1, textAlign: 'center',scrollBehavior:  , background: 'var(--primary-fixed)' }}>
+          <div className="card" style={{ flex: 1, textAlign: 'center',scrollBehavior: 'smooth' , background: 'var(--primary-fixed)' }}>
             <div className="headline-sm text-primary">{activeCount}</div>
             <div className="label-sm text-surface-variant">Active</div>
           </div>
@@ -142,7 +142,7 @@ export default function TeacherStudents() {
         ) : (
           <div className="card-list">
             {filtered.map(student => (
-              <div key={student.id} className="card-item" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}>
+              <div key={student.id} className="card-item" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                 <div className="student-avatar" style={{ opacity: student.is_paused ? 0.5 : 1 }}>
                   {getInitials(student.full_name)}
                 </div>
