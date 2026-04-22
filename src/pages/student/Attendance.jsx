@@ -28,7 +28,7 @@ export function StudentAttendance() {
     Holiday: records.filter(r => r.status === 'Holiday').length,
     'Extra Class': records.filter(r => r.status === 'Extra Class').length,
   };
-  const pct = records.length > 0 ? Math.round((stats.Present / records.length) * 100) : 0;
+  const pct = records.length > 0 ? Math.round(((stats.Present+stats['Extra Class'])/ (stats.Present+stats['Extra Class']+stats.Absent)) * 100) : 0;
 
   return (
     <div className="page-wrapper">
