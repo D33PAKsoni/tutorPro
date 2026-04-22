@@ -513,7 +513,7 @@ function SiblingLinkModal({ student, allStudents, teacherId, onClose }) {
                 <div className="section-header" style={{ marginBottom: 'var(--space-sm)' }}>
                   <span className="section-title">⭐ Suggested (same parent name)</span>
                 </div>
-                <div className="card-list" style={{ marginBottom: 'var(--space-md)', overflow: 'scroll', height: 'auto' }}>
+                <div className="card-list" style={{ marginBottom: 'var(--space-md)', overflow: 'scroll', height: '200px' }}>
                   {suggested.map(s => (
                     <SiblingRow
                       key={s.id} sibling={s}
@@ -531,7 +531,7 @@ function SiblingLinkModal({ student, allStudents, teacherId, onClose }) {
                 <div className="section-header" style={{ marginBottom: 'var(--space-sm)' }}>
                   <span className="section-title">All Other Students</span>
                 </div>
-                <div className="card-list" style={{ overflow: 'scroll' }}>
+                <div className="card-list" style={{ overflow: 'scroll', height: '200px' }}>
                   {candidates
                     .filter(s => !suggested.find(sg => sg.id === s.id))
                     .map(s => (
