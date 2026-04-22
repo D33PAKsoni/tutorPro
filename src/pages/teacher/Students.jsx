@@ -121,7 +121,7 @@ export default function TeacherStudents() {
 
         {/* Student List */}
         {loading ? (
-          <div className="card-list" style={{overflow: 'scroll'}}>
+          <div className="card-list" >
             {[1,2,3].map(i => (
               <div key={i} className="card-item" style={{ display: 'flex', gap: '1rem' }}>
                 <div className="skeleton" style={{ width: 44, height: 44, borderRadius: '50%', flexShrink: 0 }} />
@@ -531,7 +531,7 @@ function SiblingLinkModal({ student, allStudents, teacherId, onClose }) {
                 <div className="section-header" style={{ marginBottom: 'var(--space-sm)' }}>
                   <span className="section-title">All Other Students</span>
                 </div>
-                <div className="card-list">
+                <div className="card-list" style={{ overflow: 'scroll' }}>
                   {candidates
                     .filter(s => !suggested.find(sg => sg.id === s.id))
                     .map(s => (
