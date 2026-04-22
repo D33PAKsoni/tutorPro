@@ -25,7 +25,6 @@ export default function TeacherStudents() {
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editStudent, setEditStudent] = useState(null);
-  const [siblingStudent, setSiblingStudent] = useState(null); // student to manage siblings for
   const [search, setSearch] = useState('');
   const [filterPaused, setFilterPaused] = useState(false);
 
@@ -169,13 +168,6 @@ export default function TeacherStudents() {
                   </button>
                   <button
                     className="btn-icon top-bar__icon-btn"
-                    onClick={() => setSiblingStudent(student)}
-                    title="Link siblings"
-                  >
-                    <span className="material-symbols-outlined" style={{ fontSize: '1.125rem' }}>group</span>
-                  </button>
-                  <button
-                    className="btn-icon top-bar__icon-btn"
                     onClick={() => togglePause(student)}
                     title={student.is_paused ? 'Resume' : 'Pause'}
                   >
@@ -199,15 +191,6 @@ export default function TeacherStudents() {
       </main>
 
       <BottomNav role="teacher" />
-
-      {siblingStudent && (
-        <SiblingLinkModal
-          student={siblingStudent}
-          allStudents={students}
-          teacherId={user.id}
-          onClose={() => setSiblingStudent(null)}
-        />
-      )}
 
       {(showAddModal || editStudent) && (
         <StudentFormModal
@@ -391,219 +374,6 @@ function StudentFormModal({ teacherId, student, onClose, onSaved }) {
           </button>
         </div>
       </div>
-    </div>
-  );
-}
-
-// ── SiblingLinkModal ─────────────────────────────────────────────────────────
-// Lets a teacher link/unlink siblings so they can switch accounts without re-login.
-// Creates/removes rows in trust_records. Works both ways: if A is linked to B,
-// B can also switch to A (bidirectional).
-
-function SiblingLinkModal({ student, allStudents, teacherId, onClose }) {
-  const [linked, setLinked] = useState([]);       // current trust_records for this student
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(null);     // id of student being toggled
-
-  // Students that could be siblings: same teacher, different student, not self
-  const candidates = allStudents.filter(s => s.id !== student.id);
-  // Highlight suggested ones (same parent_name, non-empty)
-  const suggested = candidates.filter(
-    s => student.parent_name &&
-         s.parent_name?.toLowerCase().trim() === student.parent_name?.toLowerCase().trim()
-  );
-
-  useEffect(() => {
-    loadLinked();
-  }, [student.id]);
-
-  async function loadLinked() {
-    setLoading(true);
-    // Fetch trust records in BOTH directions
-    const { data: asMain } = await supabase
-      .from('trust_records')
-      .select('student_id')
-      .eq('auth_profile_id', student.auth_user_id)
-      .eq('granted_by_teacher_id', teacherId);
-
-    const { data: asSibling } = await supabase
-      .from('trust_records')
-      .select('auth_profile_id')
-      .eq('student_id', student.id)
-      .eq('granted_by_teacher_id', teacherId);
-
-    // Collect all student IDs linked to this student
-    const ids = new Set([
-      ...(asMain || []).map(r => r.student_id),
-      // For asSibling rows, we need the student whose auth_user_id = auth_profile_id
-    ]);
-
-    // Resolve asSibling auth_profile_ids to student ids
-    const siblingAuthIds = (asSibling || []).map(r => r.auth_profile_id);
-    if (siblingAuthIds.length > 0) {
-      const { data: sibStudents } = await supabase
-        .from('students')
-        .select('id')
-        .in('auth_user_id', siblingAuthIds);
-      (sibStudents || []).forEach(s => ids.add(s.id));
-    }
-
-    setLinked([...ids]);
-    setLoading(false);
-  }
-
-  async function toggleLink(sibling) {
-    if (!student.auth_user_id) {
-      alert('This student has no login account yet. Create a login for them first.');
-      return;
-    }
-    if (!sibling.auth_user_id) {
-      alert(`${sibling.full_name} has no login account yet. Create a login for them first.`);
-      return;
-    }
-
-    setSaving(sibling.id);
-    const isLinked = linked.includes(sibling.id);
-
-    if (isLinked) {
-      // Remove both directions
-      await supabase.from('trust_records').delete()
-        .eq('auth_profile_id', student.auth_user_id)
-        .eq('student_id', sibling.id)
-        .eq('granted_by_teacher_id', teacherId);
-      await supabase.from('trust_records').delete()
-        .eq('auth_profile_id', sibling.auth_user_id)
-        .eq('student_id', student.id)
-        .eq('granted_by_teacher_id', teacherId);
-    } else {
-      // Add both directions so either sibling can switch to the other
-      await supabase.from('trust_records').upsert([
-        { auth_profile_id: student.auth_user_id, student_id: sibling.id, granted_by_teacher_id: teacherId },
-        { auth_profile_id: sibling.auth_user_id, student_id: student.id, granted_by_teacher_id: teacherId },
-      ], { onConflict: 'auth_profile_id,student_id' });
-    }
-
-    await loadLinked();
-    setSaving(null);
-  }
-
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-sheet" onClick={e => e.stopPropagation()} style={{ maxHeight: '85dvh', overflowY: 'auto' }}>
-        <div className="modal-handle" />
-        <div className="modal-title">Sibling Links — {student.full_name}</div>
-
-        <div style={{ fontSize: '0.8125rem', color: 'var(--on-surface-variant)', marginBottom: 'var(--space-md)', lineHeight: 1.5 }}>
-          Link siblings so they can switch between accounts without re-logging in.
-          Links are <strong>bidirectional</strong> — both students get access to each other.
-        </div>
-
-        {!student.auth_user_id && (
-          <div style={{ background: 'var(--error-container)', color: 'var(--on-error-container)', padding: '0.75rem', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-md)', fontSize: '0.8125rem' }}>
-            ⚠️ This student has no login account. They cannot be linked until a login is created.
-          </div>
-        )}
-
-        {loading ? (
-          <div style={{ textAlign: 'center', padding: '2rem' }}><div className="spinner" /></div>
-        ) : (
-          <>
-            {suggested.length > 0 && (
-              <>
-                <div className="section-header" style={{ marginBottom: 'var(--space-sm)' }}>
-                  <span className="section-title">⭐ Suggested (same parent name)</span>
-                </div>
-                <div className="card-list" style={{ marginBottom: 'var(--space-md)' }}>
-                  {suggested.map(s => (
-                    <SiblingRow
-                      key={s.id} sibling={s}
-                      isLinked={linked.includes(s.id)}
-                      isSaving={saving === s.id}
-                      onToggle={() => toggleLink(s)}
-                    />
-                  ))}
-                </div>
-              </>
-            )}
-
-            {candidates.filter(s => !suggested.find(sg => sg.id === s.id)).length > 0 && (
-              <>
-                <div className="section-header" style={{ marginBottom: 'var(--space-sm)' }}>
-                  <span className="section-title">All Other Students</span>
-                </div>
-                <div className="card-list">
-                  {candidates
-                    .filter(s => !suggested.find(sg => sg.id === s.id))
-                    .map(s => (
-                      <SiblingRow
-                        key={s.id} sibling={s}
-                        isLinked={linked.includes(s.id)}
-                        isSaving={saving === s.id}
-                        onToggle={() => toggleLink(s)}
-                      />
-                    ))}
-                </div>
-              </>
-            )}
-
-            {candidates.length === 0 && (
-              <div className="empty-state">
-                <span className="material-symbols-outlined empty-state__icon">group_off</span>
-                <div className="empty-state__title">No other students</div>
-                <div className="empty-state__body">Add more students to create sibling links</div>
-              </div>
-            )}
-          </>
-        )}
-
-        <button className="btn btn-tertiary" style={{ width: '100%', marginTop: 'var(--space-md)' }} onClick={onClose}>
-          Done
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function SiblingRow({ sibling, isLinked, isSaving, onToggle }) {
-  return (
-    <div className="card-item" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}>
-      <div className="student-avatar" style={{ opacity: sibling.is_paused ? 0.5 : 1, flexShrink: 0 }}>
-        {sibling.full_name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0,2)}
-      </div>
-      <div style={{ flex: 1 }}>
-        <div className="title-sm">{sibling.full_name}</div>
-        <div style={{ display: 'flex', gap: '0.5rem', marginTop: 2, flexWrap: 'wrap' }}>
-          <span className="student-id-badge">{sibling.student_id}</span>
-          {sibling.parent_name && (
-            <span className="label-sm text-surface-variant">Parent: {sibling.parent_name}</span>
-          )}
-          {!sibling.auth_user_id && (
-            <span className="label-sm" style={{ color: 'var(--tertiary)' }}>No login</span>
-          )}
-        </div>
-      </div>
-      <button
-        onClick={onToggle}
-        disabled={isSaving}
-        style={{
-          padding: '0.4rem 0.9rem',
-          borderRadius: 'var(--radius-md)',
-          border: isLinked ? '1px solid var(--error)' : '1px solid var(--primary)',
-          background: isLinked ? 'var(--error-container)' : 'var(--primary-fixed)',
-          color: isLinked ? 'var(--on-error-container)' : 'var(--on-primary-fixed)',
-          fontFamily: 'var(--font-body)', fontSize: '0.8125rem', fontWeight: 600,
-          cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem',
-          flexShrink: 0,
-        }}
-      >
-        {isSaving ? (
-          <div className="spinner spinner--sm" />
-        ) : isLinked ? (
-          <><span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>link_off</span>Unlink</>
-        ) : (
-          <><span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>link</span>Link</>
-        )}
-      </button>
     </div>
   );
 }
