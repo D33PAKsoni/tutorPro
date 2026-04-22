@@ -84,7 +84,7 @@ export default function TeacherStudents() {
 
         {/* Summary Row */}
         <div style={{ display: 'flex', gap: 'var(--space-sm)', marginBottom: 'var(--space-md)' }}>
-          <div className="card" style={{ flex: 1, textAlign: 'center',scrollBehavior: 'smooth' , background: 'var(--primary-fixed)' }}>
+          <div className="card" style={{ flex: 1, textAlign: 'center', background: 'var(--primary-fixed)' }}>
             <div className="headline-sm text-primary">{activeCount}</div>
             <div className="label-sm text-surface-variant">Active</div>
           </div>
@@ -121,7 +121,7 @@ export default function TeacherStudents() {
 
         {/* Student List */}
         {loading ? (
-          <div className="card-list">
+          <div className="card-list" style={{overflow: 'scroll'}}>
             {[1,2,3].map(i => (
               <div key={i} className="card-item" style={{ display: 'flex', gap: '1rem' }}>
                 <div className="skeleton" style={{ width: 44, height: 44, borderRadius: '50%', flexShrink: 0 }} />
