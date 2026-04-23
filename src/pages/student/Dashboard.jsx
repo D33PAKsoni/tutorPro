@@ -167,7 +167,7 @@ export default function StudentDashboard() {
                 return (
                   <div key={fee.due_date} className="card-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
-                      {isOverdue && <span className="chip chip-overdue" style={{ marginBottom: 4, display: 'block', animation: 'borderGlow 2s ease-in-out infinite alternate' }}>Overdue</span>}
+                      {isOverdue && <span className="chip chip-overdue" style={{ marginBottom: 4, display: 'block', animation: 'borderGlow 0.5s ease-in-out infinite alternate' }}>Overdue</span>}
                       <div className="title-sm">Monthly Tuition Fee</div>
                       <div className="label-sm text-surface-variant">Due: {format(new Date(fee.due_date), 'dd MMM yyyy')}</div>
                     </div>
@@ -192,8 +192,8 @@ export default function StudentDashboard() {
               {todayData.notices.map((notice, i) => (
                 <div key={notice.id} style={{
                   background: i === 0
-                    ? 'linear-gradient(135deg, #ae8e7a 0%, #eb924e 100%)'
-                    : 'linear-gradient(135deg, #b56f47 0%, #ba7246 100%)',
+                    ? 'linear-gradient(135deg, #beb1a9 0%, #ac917c 100%)'
+                    : 'linear-gradient(135deg, #a29187 0%, #968479 100%)',
                   borderRadius: 'var(--radius-lg)',
                   padding: 'var(--space-md)',
                   boxShadow: '0 4px 16px rgba(146, 64, 14, 0.25)',
@@ -216,7 +216,7 @@ export default function StudentDashboard() {
                       <span className="material-symbols-outlined icon-filled" style={{ color: '#fbbf24', fontSize: '1rem' }}>campaign</span>
                     </div>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '0.9375rem', color: '#fef3c7', marginBottom: 2 }}>
+                      <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '0.9375rem', marginBottom: 2 }}>
                         {notice.title}
                       </div>
                       <div style={{ fontSize: '0.8125rem', color: 'rgba(254,243,199,0.8)', lineHeight: 1.4,
