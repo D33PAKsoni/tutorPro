@@ -161,11 +161,11 @@ export default function StudentDashboard() {
         {!loading && todayData?.pendingFees?.length > 0 && (
           <>
             <div className="section-header"><span className="section-title">⚠️ Due Fees</span></div>
-            <div className="card-list" style={{ marginBottom: 'var(--space-lg)', backgroundColor: 'var(--fees-card)' }}>
+            <div className="card-list" style={{ marginBottom: 'var(--space-lg)' }}>
               {todayData.pendingFees.map(fee => {
                 const isOverdue = isPast(new Date(fee.due_date));
                 return (
-                  <div key={fee.due_date} className="card-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div key={fee.due_date} className={`card-item ${isOverdue ? 'card-red' : ''}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
                       {isOverdue && <span className="chip chip-overdue" style={{ marginBottom: 4, display: 'block'}}>Overdue</span>}
                       <div className="title-sm">Monthly Tuition Fee</div>
@@ -199,6 +199,7 @@ export default function StudentDashboard() {
                   boxShadow: '0 4px 16px rgba(146, 64, 14, 0.25)',
                   border: '1px solid rgba(251,191,36,0.2)',
                   position: 'relative', overflow: 'hidden',
+                  color: 'black'
                 }}>
                   {/* decorative bg icon */}
                   <span className="material-symbols-outlined icon-filled" style={{

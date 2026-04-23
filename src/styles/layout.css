@@ -91,6 +91,21 @@
   padding: var(--space-md);
   background: var(--surface-container-lowest);
   position: relative;
+
+}
+.card-red{
+  animation: borderGlow 2s ease-in-out infinite alternate;
+}
+
+@keyframes borderGlow {
+  0% {
+    border: 1px solid rgb(255, 0, 0);
+    box-shadow: 0 0 0px rgba(255, 0, 0, 0.2);
+  }
+  100% {
+    border: 1.5px solid rgb(255, 0, 0);
+    box-shadow: 0 0 8px rgba(255, 0, 0, 0.6);
+  }
 }
 
 .card-item + .card-item::before {
