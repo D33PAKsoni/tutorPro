@@ -110,7 +110,7 @@ export default function StudentDashboard() {
               </div>
               <div className="hero-stat__label">Today's Status</div>
             </div>
-            <div>
+            {/* <div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 2 }}>
                 <span className="hero-stat__currency">₹</span>
                 <span className="hero-stat__number" style={{ fontSize: '2rem' }}>
@@ -118,7 +118,7 @@ export default function StudentDashboard() {
                 </span>
               </div>
               <div className="hero-stat__label">Advance Deposit</div>
-            </div>
+            </div> */}
           </div>
           <span className="material-symbols-outlined hero-card__bg-icon">school</span>
         </div>
@@ -160,8 +160,8 @@ export default function StudentDashboard() {
         {/* Pending Fee Highlight */}
         {!loading && todayData?.pendingFees?.length > 0 && (
           <>
-            <div className="section-header" style={{backgroundColor: 'lightpink'}}><span className="section-title">⚠️ Due Fees</span></div>
-            <div className="card-list" style={{ marginBottom: 'var(--space-lg)' }}>
+            <div className="section-header"><span className="section-title">⚠️ Due Fees</span></div>
+            <div className="card-list" style={{ marginBottom: 'var(--space-lg)', backgroundColor: 'var(--fees-card)' }}>
               {todayData.pendingFees.map(fee => {
                 const isOverdue = isPast(new Date(fee.due_date));
                 return (
@@ -192,8 +192,8 @@ export default function StudentDashboard() {
               {todayData.notices.map((notice, i) => (
                 <div key={notice.id} style={{
                   background: i === 0
-                    ? 'linear-gradient(135deg, #6aa5ed 0%, #4f5ff3 100%)'
-                    : 'linear-gradient(135deg, #696fda 0%, #434ac3 100%)',
+                    ? 'linear-gradient(135deg, #f6f5d8 0%, #e8f09c 100%)'
+                    : 'linear-gradient(135deg, #9ce060 0%, #8de847 100%)',
                   borderRadius: 'var(--radius-lg)',
                   padding: 'var(--space-md)',
                   boxShadow: '0 4px 16px rgba(146, 64, 14, 0.25)',
@@ -203,7 +203,7 @@ export default function StudentDashboard() {
                   {/* decorative bg icon */}
                   <span className="material-symbols-outlined icon-filled" style={{
                     position: 'absolute', right: -8, bottom: -8,
-                    fontSize: '4rem', color: 'rgba(251,191,36,0.12)',
+                    fontSize: '4rem', color: 'rgba(242, 242, 231, 0.12)',
                     pointerEvents: 'none',
                   }}>campaign</span>
 
