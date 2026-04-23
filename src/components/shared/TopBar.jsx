@@ -1,4 +1,5 @@
 // src/components/shared/TopBar.jsx
+import { Link } from 'react-router-dom';
 import { usePWAInstall } from '../../hooks/usePWA';
 
 export default function TopBar({ title, actions, backTo }) {
