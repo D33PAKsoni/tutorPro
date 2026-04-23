@@ -110,7 +110,7 @@ export default function StudentDashboard() {
               </div>
               <div className="hero-stat__label">Today's Status</div>
             </div>
-            {/* <div>
+            <div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 2 }}>
                 <span className="hero-stat__currency">₹</span>
                 <span className="hero-stat__number" style={{ fontSize: '2rem' }}>
@@ -118,7 +118,7 @@ export default function StudentDashboard() {
                 </span>
               </div>
               <div className="hero-stat__label">Advance Deposit</div>
-            </div> */}
+            </div>
           </div>
           <span className="material-symbols-outlined hero-card__bg-icon">school</span>
         </div>
@@ -160,14 +160,14 @@ export default function StudentDashboard() {
         {/* Pending Fee Highlight */}
         {!loading && todayData?.pendingFees?.length > 0 && (
           <>
-            <div className="section-header"><span className="section-title">⚠️ Due Fees</span></div>
+            <div className="section-header"><span className="section-title">Due Fees</span></div>
             <div className="card-list" style={{ marginBottom: 'var(--space-lg)' }}>
               {todayData.pendingFees.map(fee => {
                 const isOverdue = isPast(new Date(fee.due_date));
                 return (
-                  <div key={fee.due_date} className={`card-item ${isOverdue ? 'card-red' : ''}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div key={fee.due_date} className="card-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
-                      {isOverdue && <span className="chip chip-overdue" style={{ marginBottom: 4, display: 'block'}}>Overdue</span>}
+                      {isOverdue && <span className="chip chip-overdue" style={{ marginBottom: 4, display: 'block', backgroundColor: 'var(--error)' }}>⚠️ Overdue</span>}
                       <div className="title-sm">Monthly Tuition Fee</div>
                       <div className="label-sm text-surface-variant">Due: {format(new Date(fee.due_date), 'dd MMM yyyy')}</div>
                     </div>
@@ -192,19 +192,18 @@ export default function StudentDashboard() {
               {todayData.notices.map((notice, i) => (
                 <div key={notice.id} style={{
                   background: i === 0
-                    ? 'linear-gradient(135deg, #f6f5d8 0%, #e8f09c 100%)'
-                    : 'linear-gradient(135deg, #9ce060 0%, #8de847 100%)',
+                    ? 'linear-gradient(135deg, #92400e 0%, #b45309 100%)'
+                    : 'linear-gradient(135deg, #78350f 0%, #92400e 100%)',
                   borderRadius: 'var(--radius-lg)',
                   padding: 'var(--space-md)',
                   boxShadow: '0 4px 16px rgba(146, 64, 14, 0.25)',
                   border: '1px solid rgba(251,191,36,0.2)',
                   position: 'relative', overflow: 'hidden',
-                  color: 'black'
                 }}>
                   {/* decorative bg icon */}
                   <span className="material-symbols-outlined icon-filled" style={{
                     position: 'absolute', right: -8, bottom: -8,
-                    fontSize: '4rem', color: 'rgba(242, 242, 231, 0.12)',
+                    fontSize: '4rem', color: 'rgba(251,191,36,0.12)',
                     pointerEvents: 'none',
                   }}>campaign</span>
 
