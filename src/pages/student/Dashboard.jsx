@@ -192,8 +192,8 @@ export default function StudentDashboard() {
               {todayData.notices.map((notice, i) => (
                 <div key={notice.id} style={{
                   background: i === 0
-                    ? 'linear-gradient(135deg, #beb1a9 0%, #ac917c 100%)'
-                    : 'linear-gradient(135deg, #a29187 0%, #968479 100%)',
+                    ? 'linear-gradient(135deg, #b3c19b 0%, #c9f1bf 100%)'
+                    : 'linear-gradient(135deg, #dadfa0 0%, #ecea83 100%)',
                   borderRadius: 'var(--radius-lg)',
                   padding: 'var(--space-md)',
                   boxShadow: '0 4px 16px rgba(146, 64, 14, 0.25)',
@@ -219,12 +219,12 @@ export default function StudentDashboard() {
                       <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '0.9375rem', marginBottom: 2 }}>
                         {notice.title}
                       </div>
-                      <div style={{ fontSize: '0.8125rem', color: 'rgba(254,243,199,0.8)', lineHeight: 1.4,
+                      <div style={{ fontSize: '0.8125rem', lineHeight: 1.4,
                         WebkitLineClamp: 2, overflow: 'hidden', display: '-webkit-box', WebkitBoxOrient: 'vertical',
                       }}>
                         {notice.content}
                       </div>
-                      <div style={{ fontSize: '0.75rem', color: 'rgba(254,243,199,0.55)', marginTop: 5 }}>
+                      <div style={{ fontSize: '0.75rem', marginTop: 5 }}>
                         {format(new Date(notice.created_at), 'dd MMM · hh:mm a')}
                       </div>
                     </div>
