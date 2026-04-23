@@ -1,5 +1,5 @@
 // src/pages/student/Dashboard.jsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, act } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../../supabase';
 import { useAuth } from '../../context/AuthContext';
@@ -49,6 +49,12 @@ export default function StudentDashboard() {
     setLoading(false);
   }
 
+  const payFees = () => {
+    window.location.href = `upi://pay?pa=dkrishnasoni@ibl&pn=Deepak%20Soni&cu=INR&tn=Tuition%20Fee%20Payment${activeStudent ? `%20for%20${encodeURIComponent(activeStudent.full_name)}` : ''}`;
+  };
+
+ 
+
   const overdueCount = todayData?.pendingFees?.filter(f => isPast(new Date(f.due_date))).length || 0;
 
   return (
@@ -79,7 +85,7 @@ export default function StudentDashboard() {
             padding: 'var(--space-md)', borderRadius: 'var(--radius-lg)',
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             marginBottom: 'var(--space-md)',
-          }}>
+          }} onClick={()=> payFees()}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
               <span className="material-symbols-outlined icon-filled">error</span>
               <span className="title-sm">
@@ -161,7 +167,7 @@ export default function StudentDashboard() {
                 return (
                   <div key={fee.due_date} className="card-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
-                      {isOverdue && <span className="chip chip-overdue" style={{ marginBottom: 4, display: 'block' }}>Overdue</span>}
+                      {isOverdue && <span className="chip chip-overdue" style={{ marginBottom: 4, display: 'block', backgroundColor: 'var(--error)' }}>⚠️ Overdue</span>}
                       <div className="title-sm">Monthly Tuition Fee</div>
                       <div className="label-sm text-surface-variant">Due: {format(new Date(fee.due_date), 'dd MMM yyyy')}</div>
                     </div>
@@ -186,8 +192,8 @@ export default function StudentDashboard() {
               {todayData.notices.map((notice, i) => (
                 <div key={notice.id} style={{
                   background: i === 0
-                    ? 'linear-gradient(135deg, #92400e 0%, #b45309 100%)'
-                    : 'linear-gradient(135deg, #78350f 0%, #92400e 100%)',
+                    ? 'linear-gradient(135deg, #6aa5ed 0%, #4f5ff3 100%)'
+                    : 'linear-gradient(135deg, #696fda 0%, #434ac3 100%)',
                   borderRadius: 'var(--radius-lg)',
                   padding: 'var(--space-md)',
                   boxShadow: '0 4px 16px rgba(146, 64, 14, 0.25)',

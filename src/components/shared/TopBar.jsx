@@ -1,10 +1,8 @@
 // src/components/shared/TopBar.jsx
-import { Link, useNavigate } from 'react-router-dom';
 import { usePWAInstall } from '../../hooks/usePWA';
 
 export default function TopBar({ title, actions, backTo }) {
   const { canInstall, install } = usePWAInstall();
-  const navigate = useNavigate();
 
   return (
     <header className="top-bar">
@@ -31,13 +29,6 @@ export default function TopBar({ title, actions, backTo }) {
       </div>
 
       <div className="top-bar__actions">
-          <button
-            className="top-bar__action-btn"
-            onClick={() => navigate("/teacher/settings")}
-            title="Go to settings"
-          >
-            ⚙️
-          </button>
 
         {/* Install button — shown when browser supports the install prompt */}
         {canInstall && (

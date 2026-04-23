@@ -39,7 +39,7 @@ export default function BottomNav({ role = 'teacher' }) {
             {isActive && <span className="bottom-nav__indicator" aria-hidden="true" />}
             <span
               className="material-symbols-outlined bottom-nav__icon"
-              style={isActive ? { fontVariationSettings: "'FILL' 1" } : {}}
+              style={isActive ? { fontVariationSettings: "'FILL' 1", marginBottom: '4px' } : {}}
             >
               {item.icon}
             </span>
