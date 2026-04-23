@@ -213,7 +213,7 @@ export default function StudentDashboard() {
                       background: 'rgba(251,191,36,0.2)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                     }}>
-                      <span className="material-symbols-outlined icon-filled" style={{ color: '#fbbf24', fontSize: '1rem' }}>campaign</span>
+                      {/* <span className="material-symbols-outlined icon-filled" style={{ color: '#fbbf24', fontSize: '1rem' }}>campaign</span> */}
                     </div>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '0.9375rem', marginBottom: 2 }}>
