@@ -1,5 +1,6 @@
 // src/pages/student/Dashboard.jsx
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase } from '../../supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useStudent } from '../../context/StudentContext';
@@ -12,7 +13,6 @@ import { usePushPermission } from '../../hooks/usePWA';
 import { format, isToday, isPast } from 'date-fns';
 
 export default function StudentDashboard() {
-  const { signOut } = useAuth();
   const { activeStudent, isPaused, linkedStudents } = useStudent();
   const [showSwitch, setShowSwitch] = useState(false);
   const [todayData, setTodayData] = useState(null);
@@ -61,9 +61,9 @@ export default function StudentDashboard() {
                 <span className="material-symbols-outlined">switch_account</span>
               </button>
             )}
-            <button className="top-bar__icon-btn" onClick={signOut} title="Sign out">
-              <span className="material-symbols-outlined">logout</span>
-            </button>
+            <Link to="/student/settings" className="top-bar__icon-btn" title="Settings" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none', color: 'inherit' }}>
+              <span className="material-symbols-outlined">settings</span>
+            </Link>
           </div>
         }
       />
@@ -104,7 +104,7 @@ export default function StudentDashboard() {
               </div>
               <div className="hero-stat__label">Today's Status</div>
             </div>
-            {/* <div>
+            <div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 2 }}>
                 <span className="hero-stat__currency">₹</span>
                 <span className="hero-stat__number" style={{ fontSize: '2rem' }}>
@@ -112,7 +112,7 @@ export default function StudentDashboard() {
                 </span>
               </div>
               <div className="hero-stat__label">Advance Deposit</div>
-            </div> */}
+            </div>
           </div>
           <span className="material-symbols-outlined hero-card__bg-icon">school</span>
         </div>
@@ -178,22 +178,48 @@ export default function StudentDashboard() {
           </>
         )}
 
-        {/* Recent Notices */}
+        {/* Recent Notices — amber attention theme */}
         {!loading && todayData?.notices?.length > 0 && (
           <>
-            <div className="section-header"><span className="section-title">Recent Notices</span></div>
-            <div className="card-list">
-              {todayData.notices.map(notice => (
-                <div key={notice.id} className="card-item">
-                  <div style={{ display: 'flex', gap: 'var(--space-sm)', alignItems: 'flex-start' }}>
-                    <span className="material-symbols-outlined icon-filled" style={{ color: 'var(--primary)', fontSize: '1.125rem', flexShrink: 0 }}>campaign</span>
-                    <div>
-                      <div className="title-sm">{notice.title}</div>
-                      <div className="body-sm text-surface-variant" style={{ WebkitLineClamp: 2, overflow: 'hidden', display: '-webkit-box', WebkitBoxOrient: 'vertical' }}>
+            <div className="section-header"><span className="section-title">📢 Recent Notices</span></div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
+              {todayData.notices.map((notice, i) => (
+                <div key={notice.id} style={{
+                  background: i === 0
+                    ? 'linear-gradient(135deg, #92400e 0%, #b45309 100%)'
+                    : 'linear-gradient(135deg, #78350f 0%, #92400e 100%)',
+                  borderRadius: 'var(--radius-lg)',
+                  padding: 'var(--space-md)',
+                  boxShadow: '0 4px 16px rgba(146, 64, 14, 0.25)',
+                  border: '1px solid rgba(251,191,36,0.2)',
+                  position: 'relative', overflow: 'hidden',
+                }}>
+                  {/* decorative bg icon */}
+                  <span className="material-symbols-outlined icon-filled" style={{
+                    position: 'absolute', right: -8, bottom: -8,
+                    fontSize: '4rem', color: 'rgba(251,191,36,0.12)',
+                    pointerEvents: 'none',
+                  }}>campaign</span>
+
+                  <div style={{ display: 'flex', gap: 'var(--space-sm)', alignItems: 'flex-start', position: 'relative' }}>
+                    <div style={{
+                      width: 32, height: 32, borderRadius: '50%',
+                      background: 'rgba(251,191,36,0.2)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                    }}>
+                      <span className="material-symbols-outlined icon-filled" style={{ color: '#fbbf24', fontSize: '1rem' }}>campaign</span>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '0.9375rem', color: '#fef3c7', marginBottom: 2 }}>
+                        {notice.title}
+                      </div>
+                      <div style={{ fontSize: '0.8125rem', color: 'rgba(254,243,199,0.8)', lineHeight: 1.4,
+                        WebkitLineClamp: 2, overflow: 'hidden', display: '-webkit-box', WebkitBoxOrient: 'vertical',
+                      }}>
                         {notice.content}
                       </div>
-                      <div className="label-sm text-surface-variant" style={{ marginTop: 4 }}>
-                        {format(new Date(notice.created_at), 'dd MMM')}
+                      <div style={{ fontSize: '0.75rem', color: 'rgba(254,243,199,0.55)', marginTop: 5 }}>
+                        {format(new Date(notice.created_at), 'dd MMM · hh:mm a')}
                       </div>
                     </div>
                   </div>

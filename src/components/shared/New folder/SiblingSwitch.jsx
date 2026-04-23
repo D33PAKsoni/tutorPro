@@ -1,8 +1,7 @@
 // src/components/shared/SiblingSwitch.jsx
-import { useState } from 'react';
+// Bottom sheet modal to switch between linked student accounts (no re-auth)
+
 import { useStudent } from '../../context/StudentContext';
-import { usePushPermission } from '../../hooks/usePWA';
-import PushPrompt from './PushPrompt';
 
 function getInitials(name = '') {
   return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
@@ -10,39 +9,14 @@ function getInitials(name = '') {
 
 export default function SiblingSwitch({ onClose }) {
   const { linkedStudents, activeStudentId, switchToStudent } = useStudent();
-  const { permission, supported } = usePushPermission();
-  const [pendingSwitchId, setPendingSwitchId] = useState(null);
-  const [showPushPrompt, setShowPushPrompt] = useState(false);
 
   function handleSwitch(id) {
-    if (id === activeStudentId) { onClose?.(); return; }
-
-    // On first switch, if push is not yet decided, ask about it
-    if (supported && permission === 'default') {
-      setPendingSwitchId(id);
-      setShowPushPrompt(true);
-      return;
-    }
-
-    doSwitch(id);
-  }
-
-  function doSwitch(id) {
     switchToStudent(id);
     onClose?.();
   }
 
-  function handlePushDismiss() {
-    setShowPushPrompt(false);
-    if (pendingSwitchId) doSwitch(pendingSwitchId);
-    setPendingSwitchId(null);
-  }
-
+  // No modal needed if only one account
   if (linkedStudents.length <= 1) return null;
-
-  if (showPushPrompt) {
-    return <PushPrompt onDismiss={handlePushDismiss} />;
-  }
 
   return (
     <div className="modal-overlay" onClick={onClose}>

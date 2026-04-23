@@ -25,6 +25,7 @@ const StudentAttendance  = lazy(() => import('./pages/student/Attendance'));
 const StudentFees        = lazy(() => import('./pages/student/Fees'));
 const StudentAssessments = lazy(() => import('./pages/student/Assessments'));
 const StudentNotices     = lazy(() => import('./pages/student/Notices'));
+const StudentSettings    = lazy(() => import('./pages/student/Settings'));
 
 function FullLoader() {
   return (
@@ -135,6 +136,7 @@ function AppRouter() {
           <Route path="/student/fees"        element={<StudentRoute><StudentFees /></StudentRoute>} />
           <Route path="/student/assessments" element={<StudentRoute><StudentAssessments /></StudentRoute>} />
           <Route path="/student/notices"     element={<StudentRoute><StudentNotices /></StudentRoute>} />
+          <Route path="/student/settings"    element={<StudentRoute><StudentSettings /></StudentRoute>} />
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

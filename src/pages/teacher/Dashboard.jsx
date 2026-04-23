@@ -126,9 +126,9 @@ export default function TeacherDashboard() {
               <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>add_to_drive</span>
               Drive
             </button>
-            <button className="top-bar__icon-btn" onClick={signOut} title="Sign out">
-              <span className="material-symbols-outlined">logout</span>
-            </button>
+            <Link to="/teacher/settings" className="top-bar__icon-btn" title="Settings" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none', color: 'inherit' }}>
+              <span className="material-symbols-outlined">settings</span>
+            </Link>
           </>
         }
       />
