@@ -1,6 +1,5 @@
 // src/components/shared/BottomNav.jsx
 import { Link, useLocation } from 'react-router-dom';
-import { useTeacherPreview } from '../../context/TeacherPreviewContext';
 
 const TEACHER_ITEMS = [
   { to: '/teacher',             icon: 'dashboard',      label: 'Home'       },
@@ -17,12 +16,9 @@ const STUDENT_ITEMS = [
   { to: '/student/fees',        icon: 'payments',       label: 'Fees'       },
   { to: '/student/assessments', icon: 'assignment',     label: 'Tests'      },
   { to: '/student/notices',     icon: 'campaign',       label: 'Notices'    },
-  { to: '/student/settings',    icon: 'settings',       label: 'Settings'   },
 ];
 
 export default function BottomNav({ role = 'teacher' }) {
-  const { isPreview } = useTeacherPreview();
-  if (isPreview) return null;
   const { pathname } = useLocation();
   const items = role === 'teacher' ? TEACHER_ITEMS : STUDENT_ITEMS;
 
@@ -40,7 +36,7 @@ export default function BottomNav({ role = 'teacher' }) {
             className={`bottom-nav__item${isActive ? ' bottom-nav__item--active' : ''}`}
             aria-current={isActive ? 'page' : undefined}
           >
-            {isActive && <span className="bottom-nav__indicator" aria-hidden="true" />}
+            {/* {isActive && <span className="bottom-nav__indicator" aria-hidden="true" style={{marginBottom: '4px'}} />} */}
             <span
               className="material-symbols-outlined bottom-nav__icon"
               style={isActive ? { fontVariationSettings: "'FILL' 1" } : {}}

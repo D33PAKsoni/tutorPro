@@ -1,11 +1,8 @@
 // src/components/shared/TopBar.jsx
 import { Link } from 'react-router-dom';
 import { usePWAInstall } from '../../hooks/usePWA';
-import { useTeacherPreview } from '../../context/TeacherPreviewContext';
 
 export default function TopBar({ title, actions, backTo }) {
-  const { isPreview } = useTeacherPreview();
-  if (isPreview) return null;
   const { canInstall, install } = usePWAInstall();
 
   return (
@@ -18,7 +15,7 @@ export default function TopBar({ title, actions, backTo }) {
         ) : (
           <>
             <span className="material-symbols-outlined top-bar__brand-icon">school</span>
-            <span className="top-bar__brand-name">Tuition Pro</span>
+            <span className="top-bar__brand-name">Anand Classes</span>
           </>
         )}
         {title && backTo && (
@@ -33,6 +30,7 @@ export default function TopBar({ title, actions, backTo }) {
       </div>
 
       <div className="top-bar__actions">
+
         {/* Install button — shown when browser supports the install prompt */}
         {canInstall && (
           <button

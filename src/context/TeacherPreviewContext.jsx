@@ -19,7 +19,7 @@ export function TeacherPreviewProvider({ children }) {
   }, []);
 
   return (
-    <TeacherPreviewContext.Provider value={{ previewStudent, startPreview, stopPreview }}>
+    <TeacherPreviewContext.Provider value={{ previewStudent, startPreview, stopPreview, isPreview: !!previewStudent }}>
       {children}
     </TeacherPreviewContext.Provider>
   );
