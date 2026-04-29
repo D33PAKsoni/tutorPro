@@ -30,6 +30,7 @@ export default function TeacherStudents() {
   const [siblingStudent, setSiblingStudent] = useState(null); // student to manage siblings for
   const [search, setSearch] = useState('');
   const [filterPaused, setFilterPaused] = useState(false);
+  const [optionsStrip, setOptionsStrip] = useState(false);
 
   const loadStudents = useCallback(async () => {
     if (!user) return;
@@ -68,6 +69,7 @@ export default function TeacherStudents() {
 
   const activeCount = students.filter(s => !s.is_paused).length;
   const pausedCount = students.filter(s => s.is_paused).length;
+
 
   return (
     <div className="page-wrapper">
@@ -148,7 +150,8 @@ export default function TeacherStudents() {
                 <div className="student-avatar" style={{ opacity: student.is_paused ? 0.5 : 1 }}>
                   {getInitials(student.full_name)}
                 </div>
-                <div style={{ flex: 1 }}>
+                {!optionsStrip?
+                (<div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <span className="title-sm">{student.full_name}</span>
                     {student.is_paused && <span className="chip chip-overdue">Paused</span>}
@@ -160,8 +163,8 @@ export default function TeacherStudents() {
                       <span className="label-sm text-surface-variant">₹{student.monthly_fee?.toLocaleString('en-IN')}/mo</span>
                     )}
                   </div>
-                </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-xs)', rowGap: 4 }}>
+                </div>)
+                :(<div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-xs)', rowGap: 4 }}>
                   <button
                     className="btn-icon top-bar__icon-btn"
                     onClick={() => startPreview(student)}
@@ -200,6 +203,16 @@ export default function TeacherStudents() {
                     style={{ color: 'var(--error)' }}
                   >
                     <span className="material-symbols-outlined" style={{ fontSize: '1.125rem' }}>delete</span>
+                  </button>
+                </div>)}
+                <div style={{ display: 'flex', gap: 'var(--space-xs)', rowGap: 4 }}>
+                  <button
+                    className="btn-icon top-bar__icon-btn"
+                    onClick={() => setOptionsStrip(True)}
+                    title="Options"
+                    style={{ color: 'var(--error)' }}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: '1.125rem' }}>options</span>
                   </button>
                 </div>
               </div>
@@ -523,7 +536,7 @@ function SiblingLinkModal({ student, allStudents, teacherId, onClose }) {
                 <div className="section-header" style={{ marginBottom: 'var(--space-sm)' }}>
                   <span className="section-title">⭐ Suggested (same parent name)</span>
                 </div>
-                <div className="card-list" style={{ marginBottom: 'var(--space-md)' }}>
+                <div className="card-list" style={{ marginBottom: 'var(--space-md)', overflow: 'scroll'}}>
                   {suggested.map(s => (
                     <SiblingRow
                       key={s.id} sibling={s}
@@ -541,7 +554,7 @@ function SiblingLinkModal({ student, allStudents, teacherId, onClose }) {
                 <div className="section-header" style={{ marginBottom: 'var(--space-sm)' }}>
                   <span className="section-title">All Other Students</span>
                 </div>
-                <div className="card-list">
+                <div className="card-list" style={{overflow: 'scroll'}}>
                   {candidates
                     .filter(s => !suggested.find(sg => sg.id === s.id))
                     .map(s => (
