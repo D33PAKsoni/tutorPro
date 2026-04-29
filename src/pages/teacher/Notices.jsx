@@ -261,7 +261,7 @@ function RecipientsModal({ notice, students, onClose }) {
             <div className="empty-state__body">No students matched</div>
           </div>
         ) : (
-          <div className="card-list">
+          <div className="card-list" style={{overflow: 'scroll'}}>
             {recipientStudents.map(s => (
               <div key={s.id} className="card-item" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}>
                 <div className="student-avatar" style={{ flexShrink: 0 }}>
