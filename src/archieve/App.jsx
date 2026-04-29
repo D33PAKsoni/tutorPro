@@ -4,8 +4,6 @@ import { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { StudentProvider } from './context/StudentContext';
-import { TeacherPreviewProvider } from './context/TeacherPreviewContext';
-import TeacherPreviewOverlay from './components/shared/TeacherPreviewOverlay';
 import './styles/global.css';
 import './styles/components.css';
 import './styles/layout.css';
@@ -138,7 +136,7 @@ function AppRouter() {
           <Route path="/student/fees"        element={<StudentRoute><StudentFees /></StudentRoute>} />
           <Route path="/student/assessments" element={<StudentRoute><StudentAssessments /></StudentRoute>} />
           <Route path="/student/notices"     element={<StudentRoute><StudentNotices /></StudentRoute>} />
-          <Route path="/student/settings"   element={<StudentRoute><StudentSettings /></StudentRoute>} />
+          <Route path="/student/settings"    element={<StudentRoute><StudentSettings /></StudentRoute>} />
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
@@ -150,10 +148,7 @@ function AppRouter() {
 export default function App() {
   return (
     <AuthProvider>
-      <TeacherPreviewProvider>
-        <AppRouter />
-        <TeacherPreviewOverlay />
-      </TeacherPreviewProvider>
+      <AppRouter />
     </AuthProvider>
   );
 }

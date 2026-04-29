@@ -2,7 +2,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../supabase';
 import { useAuth } from '../../context/AuthContext';
-import { useTeacherPreview } from '../../context/TeacherPreviewContext';
 import TopBar from '../../components/shared/TopBar';
 import BottomNav from '../../components/shared/BottomNav';
 
@@ -22,7 +21,6 @@ function generateUsername(name) {
 
 export default function TeacherStudents() {
   const { user } = useAuth();
-  const { startPreview } = useTeacherPreview();
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -123,7 +121,7 @@ export default function TeacherStudents() {
 
         {/* Student List */}
         {loading ? (
-          <div className="card-list">
+          <div className="card-list" >
             {[1,2,3].map(i => (
               <div key={i} className="card-item" style={{ display: 'flex', gap: '1rem' }}>
                 <div className="skeleton" style={{ width: 44, height: 44, borderRadius: '50%', flexShrink: 0 }} />
@@ -144,7 +142,7 @@ export default function TeacherStudents() {
         ) : (
           <div className="card-list">
             {filtered.map(student => (
-              <div key={student.id} className="card-item" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}>
+              <div key={student.id} className="card-item" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                 <div className="student-avatar" style={{ opacity: student.is_paused ? 0.5 : 1 }}>
                   {getInitials(student.full_name)}
                 </div>
@@ -162,14 +160,6 @@ export default function TeacherStudents() {
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 'var(--space-xs)' }}>
-                  <button
-                    className="btn-icon top-bar__icon-btn"
-                    onClick={() => startPreview(student)}
-                    title="Preview student dashboard"
-                    style={{ color: 'var(--primary)' }}
-                  >
-                    <span className="material-symbols-outlined" style={{ fontSize: '1.125rem' }}>visibility</span>
-                  </button>
                   <button
                     className="btn-icon top-bar__icon-btn"
                     onClick={() => setEditStudent(student)}
@@ -523,7 +513,7 @@ function SiblingLinkModal({ student, allStudents, teacherId, onClose }) {
                 <div className="section-header" style={{ marginBottom: 'var(--space-sm)' }}>
                   <span className="section-title">⭐ Suggested (same parent name)</span>
                 </div>
-                <div className="card-list" style={{ marginBottom: 'var(--space-md)' }}>
+                <div className="card-list" style={{ marginBottom: 'var(--space-md)', overflow: 'scroll', height: '200px' }}>
                   {suggested.map(s => (
                     <SiblingRow
                       key={s.id} sibling={s}
@@ -541,7 +531,7 @@ function SiblingLinkModal({ student, allStudents, teacherId, onClose }) {
                 <div className="section-header" style={{ marginBottom: 'var(--space-sm)' }}>
                   <span className="section-title">All Other Students</span>
                 </div>
-                <div className="card-list">
+                <div className="card-list" style={{ overflow: 'scroll', height: '200px' }}>
                   {candidates
                     .filter(s => !suggested.find(sg => sg.id === s.id))
                     .map(s => (

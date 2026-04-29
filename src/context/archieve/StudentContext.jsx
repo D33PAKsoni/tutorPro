@@ -111,25 +111,5 @@ export function StudentProvider({ children }) {
 export function useStudent() {
   const ctx = useContext(StudentContext);
   if (!ctx) throw new Error('useStudent must be used inside StudentProvider');
-
-  // If a teacher is previewing a student, override active student values
-  // so all student pages transparently render that student's data.
-  const previewCtx = useContext(PreviewBridgeContext);
-  const previewStudent = previewCtx?.previewStudent ?? null;
-
-  if (previewStudent) {
-    return {
-      ...ctx,
-      activeStudent:   previewStudent,
-      activeStudentId: previewStudent.id,
-      isPaused:        previewStudent.is_paused ?? false,
-      linkedStudents:  [previewStudent],
-      switchToStudent: () => {},
-    };
-  }
-
   return ctx;
 }
-
-// Bridge context injected by TeacherPreviewProvider — avoids circular imports
-export const PreviewBridgeContext = createContext(null);
