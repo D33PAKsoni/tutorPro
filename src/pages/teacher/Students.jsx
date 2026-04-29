@@ -177,14 +177,14 @@ export default function TeacherStudents() {
                   >
                     <span className="material-symbols-outlined" style={{ fontSize: '1.125rem' }}>edit</span>
                   </button>
-                  {/* <button
+                  <button
                     className="btn-icon top-bar__icon-btn"
                     onClick={() => setSiblingStudent(student)}
                     title="Link siblings"
                   >
                     <span className="material-symbols-outlined" style={{ fontSize: '1.125rem' }}>group</span>
                   </button>
-                  <button
+                  {/* <button
                     className="btn-icon top-bar__icon-btn"
                     onClick={() => togglePause(student)}
                     title={student.is_paused ? 'Resume' : 'Pause'}
@@ -195,7 +195,7 @@ export default function TeacherStudents() {
                   </button>
                   <button
                     className="btn-icon top-bar__icon-btn"
-                    onClick={() => deleteStudent(student.id)}
+                    onClick={() => Studentdelete(student.id)}
                     title="Delete"
                     style={{ color: 'var(--error)' }}
                   >
@@ -263,6 +263,21 @@ function StudentFormModal({ teacherId, student, onClose, onSaved }) {
     if (!isEdit && !form.password) { setError('Password is required for new students'); return; }
     setSaving(true);
     setError('');
+
+  async function togglePause(student) {
+    await supabase
+      .from('students')
+      .update({ is_paused: !student.is_paused })
+      .eq('id', student.id);
+    loadStudents();
+  }
+
+  async function deleteStudent(id) {
+    if (!confirm('Delete this student? This will remove all their records.')) return;
+    await supabase.from('students').delete().eq('id', id);
+    loadStudents();
+  }
+
     try {
       if (isEdit) {
         const { error: err } = await supabase
@@ -339,13 +354,6 @@ function StudentFormModal({ teacherId, student, onClose, onSaved }) {
         )}
 
                <div style={{ display: 'flex', gap: 'var(--space-xs)' }}>
-                  <button
-                    className="btn-icon top-bar__icon-btn"
-                    onClick={() => setSiblingStudent(student)}
-                    title="Link siblings"
-                  >
-                    <span className="material-symbols-outlined" style={{ fontSize: '1.125rem' }}>group</span>
-                  </button>
                   <button
                     className="btn-icon top-bar__icon-btn"
                     onClick={() => togglePause(student)}
