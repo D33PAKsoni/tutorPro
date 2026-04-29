@@ -161,7 +161,7 @@ export default function TeacherStudents() {
                     )}
                   </div>
                 </div>
-                <div style={{ display: 'flex', gap: 'var(--space-xs)' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-xs)', rowGap: 4 }}>
                   <button
                     className="btn-icon top-bar__icon-btn"
                     onClick={() => startPreview(student)}
@@ -184,7 +184,7 @@ export default function TeacherStudents() {
                   >
                     <span className="material-symbols-outlined" style={{ fontSize: '1.125rem' }}>group</span>
                   </button>
-                  {/* <button
+                  <button
                     className="btn-icon top-bar__icon-btn"
                     onClick={() => togglePause(student)}
                     title={student.is_paused ? 'Resume' : 'Pause'}
@@ -195,12 +195,12 @@ export default function TeacherStudents() {
                   </button>
                   <button
                     className="btn-icon top-bar__icon-btn"
-                    onClick={() => Studentdelete(student.id)}
+                    onClick={() => deleteStudent(student.id)}
                     title="Delete"
                     style={{ color: 'var(--error)' }}
                   >
                     <span className="material-symbols-outlined" style={{ fontSize: '1.125rem' }}>delete</span>
-                  </button> */}
+                  </button>
                 </div>
               </div>
             ))}
@@ -232,33 +232,6 @@ export default function TeacherStudents() {
 }
 
 function StudentFormModal({ teacherId, student, onClose, onSaved }) {
-  const { user } = useAuth();
-  const [students, setStudents] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [editStudent, setEditStudent] = useState(null);
-  const [filterPaused, setFilterPaused] = useState(false);
-
-  const loadStudents = useCallback(async () => {
-    if (!user) return;
-    setLoading(true);
-    const { data } = await supabase
-      .from('students')
-      .select('*')
-      .eq('teacher_id', user.id)
-      .order('full_name');
-    setStudents(data || []);
-    setLoading(false);
-  }, [user]);
-
-  useEffect(() => { loadStudents(); }, [loadStudents]);
-
-
-
-
-
-
-
   const isEdit = !!student;
   const [form, setForm] = useState({
     full_name: student?.full_name || '',
@@ -290,21 +263,6 @@ function StudentFormModal({ teacherId, student, onClose, onSaved }) {
     if (!isEdit && !form.password) { setError('Password is required for new students'); return; }
     setSaving(true);
     setError('');
-
-  async function togglePause(student) {
-    await supabase
-      .from('students')
-      .update({ is_paused: !student.is_paused })
-      .eq('id', student.id);
-    loadStudents();
-  }
-
-  async function deleteStudent(id) {
-    if (!confirm('Delete this student? This will remove all their records.')) return;
-    await supabase.from('students').delete().eq('id', id);
-    loadStudents();
-  }
-
     try {
       if (isEdit) {
         const { error: err } = await supabase
@@ -379,26 +337,6 @@ function StudentFormModal({ teacherId, student, onClose, onSaved }) {
             {error}
           </div>
         )}
-
-               <div style={{ display: 'flex', gap: 'var(--space-xs)' }}>
-                  <button
-                    className="btn-icon top-bar__icon-btn"
-                    onClick={() => togglePause(student)}
-                    title={student.is_paused ? 'Resume' : 'Pause'}
-                  >
-                    <span className="material-symbols-outlined" style={{ fontSize: '1.125rem' }}>
-                      {student.is_paused ? 'play_circle' : 'pause_circle'}
-                    </span>
-                  </button>
-                  <button
-                    className="btn-icon top-bar__icon-btn"
-                    onClick={() => deleteStudent(student.id)}
-                    title="Delete"
-                    style={{ color: 'var(--error)' }}
-                  >
-                    <span className="material-symbols-outlined" style={{ fontSize: '1.125rem' }}>delete</span>
-                  </button>
-                </div>
 
         <div className="field">
           <label className="field__label">Full Name *</label>
