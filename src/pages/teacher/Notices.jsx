@@ -30,8 +30,12 @@ export default function TeacherNotices() {
 
   async function deleteNotice(id) {
     if (!confirm('Delete this notice?')) return;
-    // Also remove image from storage
-    await supabase.storage.from('notice-images').remove([`${id}`]);
+    // Remove image from storage (stored in subfolder named after notice id)
+    const { data: files } = await supabase.storage.from('notice-images').list(id);
+    if (files?.length) {
+      const paths = files.map(f => `${id}/${f.name}`);
+      await supabase.storage.from('notice-images').remove(paths);
+    }
     await supabase.from('notices').delete().eq('id', id);
     load();
   }
@@ -333,22 +337,34 @@ function NoticeModal({ teacherId, students, onClose, onSaved }) {
     // 2. Upload image if provided, store under notice id
     let image_url = null;
     if (imageFile) {
-      const ext  = imageFile.name.split('.').pop();
-      const path = `${noticeId}.${ext}`;
-      const { error: uploadErr } = await supabase.storage
+      const ext  = imageFile.name.split('.').pop().toLowerCase();
+      // Store in a subfolder named after the notice id so RLS foldername() works
+      const path = `${noticeId}/${noticeId}.${ext}`;
+      console.log('[Notices] uploading image to path:', path);
+
+      const { data: uploadData, error: uploadErr } = await supabase.storage
         .from('notice-images')
         .upload(path, imageFile, { upsert: true, contentType: imageFile.type });
 
+      console.log('[Notices] upload result:', { uploadData, uploadErr });
+
       if (uploadErr) {
-        console.warn('[Notices] image upload failed:', uploadErr.message);
+        console.error('[Notices] image upload failed:', uploadErr.message, uploadErr);
+        alert(`Image upload failed: ${uploadErr.message}\n\nMake sure you have run the SQL setup for the notice-images bucket.`);
       } else {
         const { data: urlData } = supabase.storage
           .from('notice-images')
           .getPublicUrl(path);
         image_url = urlData?.publicUrl || null;
+        console.log('[Notices] image public URL:', image_url);
 
         // 3. Update notice row with image_url
-        await supabase.from('notices').update({ image_url }).eq('id', noticeId);
+        const { error: updateErr } = await supabase
+          .from('notices').update({ image_url }).eq('id', noticeId);
+        if (updateErr) {
+          console.error('[Notices] image_url update failed:', updateErr.message);
+          alert(`Notice saved but image URL could not be stored: ${updateErr.message}\n\nMake sure you have run: ALTER TABLE public.notices ADD COLUMN image_url TEXT;`);
+        }
       }
     }
 

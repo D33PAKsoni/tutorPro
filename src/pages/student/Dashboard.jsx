@@ -192,12 +192,12 @@ export default function StudentDashboard() {
               {todayData.notices.map((notice, i) => (
                 <div key={notice.id} style={{
                   background: i === 0
-                    ? 'linear-gradient(135deg, #b3c19b 0%, #c9f1bf 100%)'
-                    : 'linear-gradient(135deg, #dadfa0 0%, #ecea83 100%)',
+                    ? 'linear-gradient(135deg, #0bb5e3 0%, #004ddd 100%)'
+                    : 'linear-gradient(135deg, #aab6ea 0%, #556692 100%)',
                   borderRadius: 'var(--radius-lg)',
                   padding: 'var(--space-md)',
-                  boxShadow: '0 4px 16px rgba(146, 64, 14, 0.25)',
-                  border: '1px solid rgba(251,191,36,0.2)',
+                  boxShadow: '0 4px 16px rgba(42, 36, 92, 0.25)',
+                  border: '1px solid rgba(2, 14, 67, 0.2)',
                   position: 'relative', overflow: 'hidden',
                 }}>
                   {/* decorative bg icon */}
