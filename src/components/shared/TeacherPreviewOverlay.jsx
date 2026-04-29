@@ -5,6 +5,7 @@
 import { useState, lazy, Suspense } from 'react';
 import { useTeacherPreview } from '../../context/TeacherPreviewContext';
 import { PreviewBridgeContext } from '../../context/StudentContext';
+import { StudentProvider } from '../../context/StudentContext';
 
 // Lazy-load all student pages so the bundle isn't affected when not previewing
 const StudentDashboard   = lazy(() => import('../../pages/student/Dashboard'));
@@ -96,18 +97,20 @@ export default function TeacherPreviewOverlay() {
       </div>
 
       {/* ── Student page content ────────────────────────────────────────── */}
-      {/* Inject bridge context so useStudent() returns previewStudent */}
-      <PreviewBridgeContext.Provider value={bridgeValue}>
-        <Suspense fallback={
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, padding: '3rem' }}>
-            <div className="spinner" />
-          </div>
-        }>
-          <div style={{ flex: 1 }}>
-            <ActivePage />
-          </div>
-        </Suspense>
-      </PreviewBridgeContext.Provider>
+      {/* StudentProvider satisfies useStudent() — PreviewBridgeContext overrides active student */}
+      <StudentProvider>
+        <PreviewBridgeContext.Provider value={bridgeValue}>
+          <Suspense fallback={
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, padding: '3rem' }}>
+              <div className="spinner" />
+            </div>
+          }>
+            <div style={{ flex: 1 }}>
+              <ActivePage />
+            </div>
+          </Suspense>
+        </PreviewBridgeContext.Provider>
+      </StudentProvider>
 
       {/* ── Tab bar ────────────────────────────────────────────────────── */}
       <nav style={{
