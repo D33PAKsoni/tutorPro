@@ -30,7 +30,7 @@ export default function TeacherStudents() {
   const [siblingStudent, setSiblingStudent] = useState(null); // student to manage siblings for
   const [search, setSearch] = useState('');
   const [filterPaused, setFilterPaused] = useState(false);
-  const [optionsStrip, setOptionsStrip] = useState(false);
+  const [optionsStrip, setOptionsStrip] = useState(null);
 
   const loadStudents = useCallback(async () => {
     if (!user) return;
@@ -150,21 +150,9 @@ export default function TeacherStudents() {
                 <div className="student-avatar" style={{ opacity: student.is_paused ? 0.5 : 1 }}>
                   {getInitials(student.full_name)}
                 </div>
-                {!optionsStrip?
-                (<div style={{ flex: 1 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <span className="title-sm">{student.full_name}</span>
-                    {student.is_paused && <span className="chip chip-overdue">Paused</span>}
-                  </div>
-                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: 2 }}>
-                    <span className="student-id-badge">{student.student_id}</span>
-                    {student.grade && <span className="label-sm text-surface-variant">{student.grade}</span>}
-                    {student.monthly_fee > 0 && (
-                      <span className="label-sm text-surface-variant">₹{student.monthly_fee?.toLocaleString('en-IN')}/mo</span>
-                    )}
-                  </div>
-                </div>)
-                :(<div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-xs)', rowGap: 4 }}>
+                {(optionsStrip == student.id)?
+                
+                (<div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-xs)', rowGap: 4 }}>
                   <button
                     className="btn-icon top-bar__icon-btn"
                     onClick={() => startPreview(student)}
@@ -204,11 +192,25 @@ export default function TeacherStudents() {
                   >
                     <span className="material-symbols-outlined" style={{ fontSize: '1.125rem' }}>delete</span>
                   </button>
-                </div>)}
+                </div>):
+                (<div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span className="title-sm">{student.full_name}</span>
+                    {student.is_paused && <span className="chip chip-overdue">Paused</span>}
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: 2 }}>
+                    <span className="student-id-badge">{student.student_id}</span>
+                    {student.grade && <span className="label-sm text-surface-variant">{student.grade}</span>}
+                    {student.monthly_fee > 0 && (
+                      <span className="label-sm text-surface-variant">₹{student.monthly_fee?.toLocaleString('en-IN')}/mo</span>
+                    )}
+                  </div>
+                </div>)
+                }
                 <div style={{ display: 'flex', gap: 'var(--space-xs)', rowGap: 4 }}>
                   <button
                     className="btn-icon top-bar__icon-btn"
-                    onClick={() => setOptionsStrip(!optionsStrip)}
+                    onClick={() => setOptionsStrip(optionsStrip === student.id ? null : student.id)}
                     title="Options"
                     style={{ color: 'var(--error)' }}
                   >
@@ -536,7 +538,7 @@ function SiblingLinkModal({ student, allStudents, teacherId, onClose }) {
                 <div className="section-header" style={{ marginBottom: 'var(--space-sm)' }}>
                   <span className="section-title">⭐ Suggested (same parent name)</span>
                 </div>
-                <div className="card-list" style={{ marginBottom: 'var(--space-md)', overflow: 'scroll'}}>
+                <div className="card-list" style={{ marginBottom: 'var(--space-md)', overflow: 'scroll', minHeight: 40}}>
                   {suggested.map(s => (
                     <SiblingRow
                       key={s.id} sibling={s}
