@@ -208,11 +208,11 @@ export default function TeacherStudents() {
                 <div style={{ display: 'flex', gap: 'var(--space-xs)', rowGap: 4 }}>
                   <button
                     className="btn-icon top-bar__icon-btn"
-                    onClick={() => setOptionsStrip(True)}
+                    onClick={() => setOptionsStrip(!optionsStrip)}
                     title="Options"
                     style={{ color: 'var(--error)' }}
                   >
-                    <span className="material-symbols-outlined" style={{ fontSize: '1.125rem' }}>options</span>
+                    <span className="material-symbols-outlined" style={{ fontSize: '1.125rem' }}>more_vert</span>
                   </button>
                 </div>
               </div>
