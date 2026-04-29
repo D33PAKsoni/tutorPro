@@ -232,6 +232,33 @@ export default function TeacherStudents() {
 }
 
 function StudentFormModal({ teacherId, student, onClose, onSaved }) {
+  const { user } = useAuth();
+  const [students, setStudents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [editStudent, setEditStudent] = useState(null);
+  const [filterPaused, setFilterPaused] = useState(false);
+
+  const loadStudents = useCallback(async () => {
+    if (!user) return;
+    setLoading(true);
+    const { data } = await supabase
+      .from('students')
+      .select('*')
+      .eq('teacher_id', user.id)
+      .order('full_name');
+    setStudents(data || []);
+    setLoading(false);
+  }, [user]);
+
+  useEffect(() => { loadStudents(); }, [loadStudents]);
+
+
+
+
+
+
+
   const isEdit = !!student;
   const [form, setForm] = useState({
     full_name: student?.full_name || '',
