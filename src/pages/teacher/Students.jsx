@@ -177,7 +177,7 @@ export default function TeacherStudents() {
                   >
                     <span className="material-symbols-outlined" style={{ fontSize: '1.125rem' }}>edit</span>
                   </button>
-                  <button
+                  {/* <button
                     className="btn-icon top-bar__icon-btn"
                     onClick={() => setSiblingStudent(student)}
                     title="Link siblings"
@@ -200,7 +200,7 @@ export default function TeacherStudents() {
                     style={{ color: 'var(--error)' }}
                   >
                     <span className="material-symbols-outlined" style={{ fontSize: '1.125rem' }}>delete</span>
-                  </button>
+                  </button> */}
                 </div>
               </div>
             ))}
@@ -337,6 +337,33 @@ function StudentFormModal({ teacherId, student, onClose, onSaved }) {
             {error}
           </div>
         )}
+
+               <div style={{ display: 'flex', gap: 'var(--space-xs)' }}>
+                  <button
+                    className="btn-icon top-bar__icon-btn"
+                    onClick={() => setSiblingStudent(student)}
+                    title="Link siblings"
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: '1.125rem' }}>group</span>
+                  </button>
+                  <button
+                    className="btn-icon top-bar__icon-btn"
+                    onClick={() => togglePause(student)}
+                    title={student.is_paused ? 'Resume' : 'Pause'}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: '1.125rem' }}>
+                      {student.is_paused ? 'play_circle' : 'pause_circle'}
+                    </span>
+                  </button>
+                  <button
+                    className="btn-icon top-bar__icon-btn"
+                    onClick={() => deleteStudent(student.id)}
+                    title="Delete"
+                    style={{ color: 'var(--error)' }}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: '1.125rem' }}>delete</span>
+                  </button>
+                </div>
 
         <div className="field">
           <label className="field__label">Full Name *</label>
