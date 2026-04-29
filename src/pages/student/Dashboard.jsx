@@ -203,18 +203,18 @@ export default function StudentDashboard() {
                   {/* decorative bg icon */}
                   <span className="material-symbols-outlined icon-filled" style={{
                     position: 'absolute', right: -8, bottom: -8,
-                    fontSize: '4rem', color: 'rgba(251,191,36,0.12)',
+                    fontSize: '4rem', color: 'rgba(171, 159, 255, 0.12)',
                     pointerEvents: 'none',
                   }}>campaign</span>
 
                   <div style={{ display: 'flex', gap: 'var(--space-sm)', alignItems: 'flex-start', position: 'relative' }}>
-                    <div style={{
+                    {/* <div style={{
                       width: 32, height: 32, borderRadius: '50%',
                       background: 'rgba(251,191,36,0.2)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                     }}>
-                      {/* <span className="material-symbols-outlined icon-filled" style={{ color: '#fbbf24', fontSize: '1rem' }}>campaign</span> */}
-                    </div>
+                      <span className="material-symbols-outlined icon-filled" style={{ color: '#fbbf24', fontSize: '1rem' }}>campaign</span>
+                    </div> */}
                     <div style={{ flex: 1 }}>
                       <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '0.9375rem', marginBottom: 2 }}>
                         {notice.title}
