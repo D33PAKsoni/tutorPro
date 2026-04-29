@@ -118,6 +118,7 @@ function RootRedirect() {
 function AppRouter() {
   return (
     <BrowserRouter>
+      <TeacherPreviewOverlay />
       <Suspense fallback={<FullLoader />}>
         <Routes>
           <Route path="/" element={<RootRedirect />} />
@@ -152,7 +153,6 @@ export default function App() {
     <AuthProvider>
       <TeacherPreviewProvider>
         <AppRouter />
-        <TeacherPreviewOverlay />
       </TeacherPreviewProvider>
     </AuthProvider>
   );
