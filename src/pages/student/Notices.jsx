@@ -19,9 +19,19 @@ export default function StudentNotices() {
     supabase
       .from('notices')
       .select('*')
+      .eq('teacher_id', activeStudent.teacher_id)
       .order('is_pinned',   { ascending: false })
       .order('created_at',  { ascending: false })
-      .then(({ data }) => { setNotices(data || []); setLoading(false); });
+      .then(({ data }) => {
+        // Filter individual-addressed notices to only those for this student
+        const filtered = (data || []).filter(n =>
+          n.recipient_type === 'all' ||
+          n.recipient_type === 'group' ||
+          (n.recipient_type === 'individual' && (n.recipient_student_ids || []).includes(activeStudent.id))
+        );
+        setNotices(filtered);
+        setLoading(false);
+      });
   }, [activeStudent?.id]);
 
   return (

@@ -6,22 +6,22 @@ import { useStudent } from '../../context/StudentContext';
 import TopBar from '../../components/shared/TopBar';
 import BottomNav from '../../components/shared/BottomNav';
 import PausedBanner from '../../components/shared/PausedBanner';
-import { format, parseISO, isPast } from 'date-fns';
+import { format, parseISO, isPast, startOfMonth, subMonths, addMonths } from 'date-fns';
 
 export default function StudentFees() {
   const { activeStudent, isPaused } = useStudent();
+  const [month, setMonth] = useState(startOfMonth(new Date()));
   const [fees, setFees] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!activeStudent) return;
     setLoading(true);
-    supabase.from('fees')
-      .select('id, amount, due_date, status, month, remark')
-      .eq('student_id', activeStudent.id)
-      .order('due_date', { ascending: false })
+    const monthStr = format(month, 'yyyy-MM-dd');
+    supabase.from('fees').select('id, amount, due_date, status, month, remark')
+      .eq('student_id', activeStudent.id).eq('month', monthStr)
       .then(({ data }) => { setFees(data || []); setLoading(false); });
-  }, [activeStudent?.id]);
+  }, [activeStudent?.id, month]);
 
   return (
     <div className="page-wrapper">
@@ -45,12 +45,23 @@ export default function StudentFees() {
           </div>
         </div>
 
+        {/* Month Navigator */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-md)' }}>
+          <button className="top-bar__icon-btn" onClick={() => setMonth(m => subMonths(m, 1))}>
+            <span className="material-symbols-outlined">chevron_left</span>
+          </button>
+          <span className="headline-sm text-primary">{format(month, 'MMMM yyyy')}</span>
+          <button className="top-bar__icon-btn" onClick={() => setMonth(m => addMonths(m, 1))}>
+            <span className="material-symbols-outlined">chevron_right</span>
+          </button>
+        </div>
+
         {loading ? (
           <div className="card-list">{[1].map(i => <div key={i} className="card-item skeleton" style={{ height: 80 }} />)}</div>
         ) : fees.length === 0 ? (
           <div className="empty-state">
             <span className="material-symbols-outlined empty-state__icon">receipt_long</span>
-            <div className="empty-state__title">No fee records yet</div>
+            <div className="empty-state__title">No fee record for {format(month, 'MMMM')}</div>
           </div>
         ) : (
           <div className="card-list">
@@ -64,7 +75,7 @@ export default function StudentFees() {
                         <span className={`chip chip-${fee.status.toLowerCase()}`}>{fee.status}</span>
                         {isOverdue && <span className="chip chip-overdue">Overdue</span>}
                       </div>
-                      <div className="title-sm">{fee.month ? format(parseISO(fee.month), 'MMMM yyyy') : 'Monthly Tuition Fee'}</div>
+                      <div className="title-sm">Monthly Tuition Fee</div>
                       <div className="label-sm text-surface-variant">Due: {format(parseISO(fee.due_date), 'dd MMMM yyyy')}</div>
                       {fee.remark && <div className="label-sm text-surface-variant" style={{ marginTop: 2 }}>{fee.remark}</div>}
                     </div>

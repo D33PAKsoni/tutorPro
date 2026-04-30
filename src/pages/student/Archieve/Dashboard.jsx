@@ -1,5 +1,5 @@
 // src/pages/student/Dashboard.jsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, act } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../../supabase';
 import { useAuth } from '../../context/AuthContext';
@@ -39,23 +39,21 @@ export default function StudentDashboard() {
     const [attRes, feesRes, noticesRes] = await Promise.all([
       supabase.from('attendance').select('status, remark').eq('student_id', activeStudent.id).eq('date', today).single(),
       supabase.from('fees').select('amount, due_date, status').eq('student_id', activeStudent.id).neq('status', 'Paid').neq('status', 'Waived').order('due_date').limit(3),
-      // Filter notices: must be from this student's teacher AND addressed to this student
-      supabase.from('notices').select('id, title, content, created_at, recipient_type, recipient_student_ids')
-        .eq('teacher_id', activeStudent.teacher_id)
-        .order('created_at', { ascending: false })
-        .limit(10),
+      supabase.from('notices').select('id, title, content, created_at').order('created_at', { ascending: false }).limit(3),
     ]);
     setTodayData({
       attendance: attRes.data,
       pendingFees: feesRes.data || [],
-      notices: (noticesRes.data || []).filter(n =>
-        n.recipient_type === 'all' ||
-        n.recipient_type === 'group' ||
-        (n.recipient_type === 'individual' && (n.recipient_student_ids || []).includes(activeStudent.id))
-      ).slice(0, 3),
+      notices: noticesRes.data || [],
     });
     setLoading(false);
   }
+
+  const payFees = () => {
+    window.location.href = `upi://pay?pa=dkrishnasoni@ibl&pn=Deepak%20Soni&cu=INR&tn=Tuition%20Fee%20Payment${activeStudent ? `%20for%20${encodeURIComponent(activeStudent.full_name)}` : ''}`;
+  };
+
+ 
 
   const overdueCount = todayData?.pendingFees?.filter(f => isPast(new Date(f.due_date))).length || 0;
 
@@ -87,7 +85,7 @@ export default function StudentDashboard() {
             padding: 'var(--space-md)', borderRadius: 'var(--radius-lg)',
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             marginBottom: 'var(--space-md)',
-          }}>
+          }} onClick={()=> payFees()}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
               <span className="material-symbols-outlined icon-filled">error</span>
               <span className="title-sm">
